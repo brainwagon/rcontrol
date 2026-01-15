@@ -34,6 +34,17 @@ Pin mappings are defined in `main/config.h`. Default configuration:
     *   Left Turn Signal: GPIO 2
     *   Right Turn Signal: GPIO 4
 
+## Wi-Fi Configuration
+
+The robot connects to a Wi-Fi network to provide a web dashboard. You must configure your network credentials before building:
+
+1.  Open `main/wifi_connect.h`.
+2.  Update `WIFI_SSID` and `WIFI_PASS` with your network's SSID and password:
+    ```c
+    #define WIFI_SSID      "YOUR_WIFI_NAME"
+    #define WIFI_PASS      "YOUR_WIFI_PASSWORD"
+    ```
+
 ## Setting up ESP-IDF
 
 To build this project, you need the Espressif IoT Development Framework (ESP-IDF).
