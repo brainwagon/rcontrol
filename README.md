@@ -38,12 +38,15 @@ Pin mappings are defined in `main/config.h`. Default configuration:
 
 The robot connects to a Wi-Fi network to provide a web dashboard. You must configure your network credentials before building:
 
-1.  Open `main/wifi_connect.h`.
-2.  Update `WIFI_SSID` and `WIFI_PASS` with your network's SSID and password:
-    ```c
-    #define WIFI_SSID      "YOUR_WIFI_NAME"
-    #define WIFI_PASS      "YOUR_WIFI_PASSWORD"
+1.  Run the configuration menu:
+    ```bash
+    idf.py menuconfig
     ```
+2.  Navigate to **WiFi Configuration**.
+3.  Enter your **WiFi SSID** and **WiFi Password**.
+4.  Press `S` (Save) and `Esc` (Exit).
+
+These credentials are saved in your local `sdkconfig` and will not be committed to version control.
 
 ## Setting up ESP-IDF
 
