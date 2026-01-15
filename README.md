@@ -119,6 +119,21 @@ To build this project, you need the Espressif IoT Development Framework (ESP-IDF
     idf.py -p /dev/ttyUSB0 flash
     ```
 
+    **Note for WSL (Windows Subsystem for Linux) Users:**
+    To access the USB port from WSL, you need to use `usbipd-win`.
+    1.  Install [usbipd-win](https://github.com/dorssel/usbipd-win/releases) on Windows.
+    2.  Open PowerShell as Administrator on Windows and list devices:
+        ```powershell
+        usbipd list
+        ```
+    3.  Find your ESP32 (e.g., "Silicon Labs CP210x" or "USB Serial Port") and note its BUSID.
+    4.  Bind and attach it (replace `<busid>` with your value):
+        ```powershell
+        usbipd bind --busid <busid>
+        usbipd attach --wsl --busid <busid>
+        ```
+    5.  In WSL, the device should now appear as `/dev/ttyUSB0`.
+
 6.  **Monitor:**
     To see log output.
     ```bash
