@@ -2,6 +2,7 @@
 #define WEB_SERVER_H
 
 #include <stdbool.h>
+#include <stdarg.h>
 
 void web_server_init(void);
 void web_server_broadcast_log(const char *fmt, va_list args);
