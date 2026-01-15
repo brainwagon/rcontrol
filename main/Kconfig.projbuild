@@ -1,0 +1,15 @@
+menu "WiFi Configuration"
+
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "MY_ROBOT_WIFI"
+        help
+            SSID (Network Name) of the WiFi network to connect to.
+
+    config WIFI_PASS
+        string "WiFi Password"
+        default "robot123"
+        help
+            Password for the WiFi network.
+
+endmenu
