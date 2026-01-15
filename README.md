@@ -1,6 +1,10 @@
 # rcontrol - ESP32 Robot Firmware
 
-This project is ESP-IDF firmware for a skid-steering robot controlled by a Bluetooth HID gamepad.
+This project is ESP-IDF firmware for a skid-steering robot controlled by a Bluetooth HID gamepad.  It was 
+written using the Gemini CLI AI agent by [Mark VandeWettering](mailto:mvandewettering@gmail.com).  It is 
+not especially advanced, nor has it been tested at all, but it should serve as a good test platform for 
+experimentation.  In addition to reading control inputs from a Bluetooth controller, it provides an HTTP
+server that indicates that status of various controls.
 
 ## Hardware Requirements
 
