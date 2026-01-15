@@ -94,7 +94,7 @@ void app_main(void) {
             lights_set_right(true);
             
             // Update Web Interface (Crash status)
-            web_server_update_status(0, 0, hit_fl, hit_fr, hit_rl, hit_rr, true, true);
+            web_server_update_status(0, 0, hit_fl, hit_fr, hit_rl, hit_rr, true, true, gamepad_get_state().connected);
 
             vTaskDelay(pdMS_TO_TICKS(100));
             lights_set_left(false);
@@ -130,7 +130,7 @@ void app_main(void) {
             }
             
             // Web Update
-            web_server_update_status(left_speed, right_speed, hit_fl, hit_fr, hit_rl, hit_rr, led_l, led_r);
+            web_server_update_status(left_speed, right_speed, hit_fl, hit_fr, hit_rl, hit_rr, led_l, led_r, true);
 
         } else {
             motors_stop();
@@ -138,7 +138,7 @@ void app_main(void) {
             bool blink = (xTaskGetTickCount() % 100) < 50;
             lights_set_left(blink);
             
-            web_server_update_status(0, 0, hit_fl, hit_fr, hit_rl, hit_rr, blink, false);
+            web_server_update_status(0, 0, hit_fl, hit_fr, hit_rl, hit_rr, blink, false, false);
         }
 
         vTaskDelay(pdMS_TO_TICKS(50)); // 20Hz update rate

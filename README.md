@@ -143,8 +143,35 @@ To build this project, you need the Espressif IoT Development Framework (ESP-IDF
 
 ## Usage
 
-1.  Power on the robot.
-2.  Put your Bluetooth gamepad into pairing mode.
-3.  The robot will automatically scan and pair with the first HID device it finds.
-4.  Use the Left Stick or D-Pad for movement (Skid steering).
-5.  Bumpers will stop the motors if triggered.
+### Pairing a Bluetooth Controller
+
+The robot uses Bluetooth Classic HID to connect to gamepads. It is configured to automatically scan for and connect to nearby peripheral devices (Major Class: 0x05) when not connected.
+
+1.  **Power on the Robot:** Ensure the ESP32 is powered and the firmware is running.
+2.  **Enable Pairing Mode:** Put your Bluetooth gamepad into pairing mode.
+    *   **PS4 Controller:** Hold `PS Button` + `Share` until the light bar flashes.
+    *   **Xbox Controller:** Press the `Pairing Button` on the top until the logo flashes.
+    *   **Generic Gamepads:** Usually involves holding a combination like `Home` + `X` or a dedicated pair button.
+3.  **Automatic Connection:** The robot will detect the controller and attempt to pair automatically. Once connected:
+    *   The onboard LED (if configured) or the web dashboard will indicate the connection status.
+    *   The web dashboard "Controller" status will turn green and show "Connected".
+4.  **Reconnection:** The robot will attempt to reconnect or re-scan if the connection is lost.
+
+### Web Dashboard
+
+1.  Open your browser and navigate to the IP address shown in the serial logs (or check your router).
+2.  The dashboard provides real-time status of:
+    *   Motor speeds and direction.
+    *   Bumper sensor triggers.
+    *   Turn signal LED states.
+    *   Bluetooth controller connection status.
+    *   Live system logs.
+
+3.  Visit `/help` on the robot's IP for a detailed pinout and system information page.
+
+### Controls
+
+*   **Movement:** Use the Left Joystick for skid-steering (Arcade drive).
+*   **Turn Signals:** Moving the joystick horizontally triggers the corresponding turn signal blinker.
+*   **Safety:** If any bumper is pressed, the motors will stop immediately.
+

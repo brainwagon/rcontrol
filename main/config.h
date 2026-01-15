@@ -20,13 +20,14 @@
 #define US_MAX_DIST_CM      400
 
 // Bumper Microswitches (Active Low usually)
+// Note: Changed to pins with internal Pull-Ups to avoid floating inputs
 #define BUMPER_FRONT_LEFT   32
-#define BUMPER_FRONT_RIGHT  35
-#define BUMPER_REAR_LEFT    34
-#define BUMPER_REAR_RIGHT   39
+#define BUMPER_FRONT_RIGHT  13
+#define BUMPER_REAR_LEFT    21
+#define BUMPER_REAR_RIGHT   22
 
 // Lights (LEDs)
-#define LED_LEFT_TURN       2
+#define LED_LEFT_TURN       5
 #define LED_RIGHT_TURN      4
 
 #endif // CONFIG_H

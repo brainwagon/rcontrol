@@ -17,8 +17,9 @@ static const char index_html[] = R"rawliteral(
   .motor-row { display: flex; align-items: center; margin: 15px 0; }
   .motor-label { width: 50px; text-align: right; margin-right: 10px; font-weight: bold; }
   .motor-track { flex-grow: 1; height: 24px; background: #333; border-radius: 12px; position: relative; overflow: hidden; }
-  .motor-fill { height: 100%; width: 0%; position: absolute; left: 50%; transition: all 0.1s ease; }
-  .motor-val { width: 40px; text-align: left; margin-left: 10px; font-family: monospace; }
+  .motor-track::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #555; transform: translateX(-50%); z-index: 0; }
+  .motor-fill { height: 100%; width: 0%; position: absolute; left: 50%; transition: all 0.1s ease; z-index: 1; }
+  .motor-val { width: 80px; text-align: left; margin-left: 10px; font-family: monospace; font-size: 0.9em; }
 
   /* Bumpers */
   .bumper-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -29,6 +30,10 @@ static const char index_html[] = R"rawliteral(
   .light-row { display: flex; justify-content: space-around; margin-top: 20px; }
   .light { width: 40px; height: 40px; border-radius: 50%; background: #333; border: 2px solid #555; transition: all 0.2s; }
   .light.on { background: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; border-color: #fff; }
+
+  /* Status Indicator */
+  .status-indicator { font-size: 1.2em; font-weight: bold; color: #cf6679; margin-top: 10px; }
+  .status-indicator.connected { color: #00e676; }
 
   /* Logs */
   #log-window { 
@@ -99,6 +104,12 @@ static const char index_html[] = R"rawliteral(
         <div>RIGHT<br><div id="l-r" class="light"></div></div>
       </div>
     </div>
+
+    <!-- Controller Status -->
+    <div class="box">
+      <h3>Controller</h3>
+      <div id="bt-status" class="status-indicator">Disconnected</div>
+    </div>
   </div>
 
   <h3>System Logs</h3>
@@ -145,10 +156,27 @@ static const char index_html[] = R"rawliteral(
         
         setLed('l', d.ll);
         setLed('r', d.lr);
+        
+        setBt(d.bt);
+    }
+
+    function setBt(connected) {
+        var el = document.getElementById('bt-status');
+        if (connected) {
+            el.innerText = "Connected";
+            el.classList.add('connected');
+        } else {
+            el.innerText = "Disconnected";
+            el.classList.remove('connected');
+        }
     }
 
     function setMotor(id, val) {
-        document.getElementById('val-'+id).innerText = val;
+        var text = "STOP";
+        if (val > 0) text = "FWD " + val;
+        else if (val < 0) text = "REV " + Math.abs(val);
+        
+        document.getElementById('val-'+id).innerText = text;
         var bar = document.getElementById('bar-'+id);
         var w = Math.abs(val) / 2; 
         

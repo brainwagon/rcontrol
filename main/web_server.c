@@ -1,8 +1,10 @@
 #include "web_server.h"
 #include "index_html.h"
+#include "config.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_netif.h"
 #include "cJSON.h"
 #include <stdio.h>
 
@@ -51,6 +53,92 @@ static esp_err_t ws_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// Handler for /help
+static esp_err_t help_get_handler(httpd_req_t *req)
+{
+    // 1. Gather Data & Build JSON
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddStringToObject(root, "project", "RControl ESP32 Firmware");
+    
+    char ip_str[32] = "unknown";
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif) {
+        esp_netif_ip_info_t ip_info;
+        esp_netif_get_ip_info(netif, &ip_info);
+        snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&ip_info.ip));
+    }
+    cJSON_AddStringToObject(root, "ip", ip_str);
+
+    cJSON *pins = cJSON_CreateObject();
+    #define ADD_PIN(p) cJSON_AddNumberToObject(pins, #p, p)
+    ADD_PIN(MOTOR_LEFT_ENA_PIN);
+    ADD_PIN(MOTOR_LEFT_IN1_PIN);
+    ADD_PIN(MOTOR_LEFT_IN2_PIN);
+    ADD_PIN(MOTOR_RIGHT_ENB_PIN);
+    ADD_PIN(MOTOR_RIGHT_IN3_PIN);
+    ADD_PIN(MOTOR_RIGHT_IN4_PIN);
+    ADD_PIN(US_TRIGGER_PIN);
+    ADD_PIN(US_ECHO_PIN);
+    ADD_PIN(BUMPER_FRONT_LEFT);
+    ADD_PIN(BUMPER_FRONT_RIGHT);
+    ADD_PIN(BUMPER_REAR_LEFT);
+    ADD_PIN(BUMPER_REAR_RIGHT);
+    ADD_PIN(LED_LEFT_TURN);
+    ADD_PIN(LED_RIGHT_TURN);
+    #undef ADD_PIN
+
+    cJSON_AddItemToObject(root, "pins", pins);
+
+    char *json_str = cJSON_Print(root); // Pretty print
+
+    // 2. Start HTML Response
+    httpd_resp_set_type(req, "text/html");
+    
+    httpd_resp_sendstr_chunk(req, "<!DOCTYPE html><html><head><title>RControl Help</title>"
+                                  "<style>body{font-family:sans-serif;} table{border-collapse:collapse;} "
+                                  "th,td{border:1px solid #ddd;padding:8px;} th{background-color:#f2f2f2;}</style>"
+                                  "</head><body>");
+    
+    char buf[128];
+    snprintf(buf, sizeof(buf), "<h1>RControl ESP32 Firmware</h1><p><strong>IP Address:</strong> %s</p>", ip_str);
+    httpd_resp_sendstr_chunk(req, buf);
+
+    httpd_resp_sendstr_chunk(req, "<h2>Pin Assignments</h2><table><tr><th>Name</th><th>Pin</th></tr>");
+
+    #define SEND_ROW(name, pin) \
+        snprintf(buf, sizeof(buf), "<tr><td>" #name "</td><td>%d</td></tr>", pin); \
+        httpd_resp_sendstr_chunk(req, buf)
+
+    SEND_ROW(MOTOR_LEFT_ENA_PIN, MOTOR_LEFT_ENA_PIN);
+    SEND_ROW(MOTOR_LEFT_IN1_PIN, MOTOR_LEFT_IN1_PIN);
+    SEND_ROW(MOTOR_LEFT_IN2_PIN, MOTOR_LEFT_IN2_PIN);
+    SEND_ROW(MOTOR_RIGHT_ENB_PIN, MOTOR_RIGHT_ENB_PIN);
+    SEND_ROW(MOTOR_RIGHT_IN3_PIN, MOTOR_RIGHT_IN3_PIN);
+    SEND_ROW(MOTOR_RIGHT_IN4_PIN, MOTOR_RIGHT_IN4_PIN);
+    SEND_ROW(US_TRIGGER_PIN, US_TRIGGER_PIN);
+    SEND_ROW(US_ECHO_PIN, US_ECHO_PIN);
+    SEND_ROW(BUMPER_FRONT_LEFT, BUMPER_FRONT_LEFT);
+    SEND_ROW(BUMPER_FRONT_RIGHT, BUMPER_FRONT_RIGHT);
+    SEND_ROW(BUMPER_REAR_LEFT, BUMPER_REAR_LEFT);
+    SEND_ROW(BUMPER_REAR_RIGHT, BUMPER_REAR_RIGHT);
+    SEND_ROW(LED_LEFT_TURN, LED_LEFT_TURN);
+    SEND_ROW(LED_RIGHT_TURN, LED_RIGHT_TURN);
+    
+    #undef SEND_ROW
+
+    httpd_resp_sendstr_chunk(req, "</table><h2>JSON Data</h2><pre>");
+    if (json_str) {
+        httpd_resp_sendstr_chunk(req, json_str);
+        free(json_str);
+    }
+    httpd_resp_sendstr_chunk(req, "</pre></body></html>");
+    
+    httpd_resp_send_chunk(req, NULL, 0);
+
+    cJSON_Delete(root);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -71,10 +159,18 @@ void web_server_init(void)
         .is_websocket = true
     };
 
+    httpd_uri_t help_uri = {
+        .uri        = "/help",
+        .method     = HTTP_GET,
+        .handler    = help_get_handler,
+        .user_ctx   = NULL
+    };
+
     ESP_LOGI(TAG, "Starting web server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
         httpd_register_uri_handler(server, &root_uri);
         httpd_register_uri_handler(server, &ws_uri);
+        httpd_register_uri_handler(server, &help_uri);
     } else {
         ESP_LOGE(TAG, "Error starting server!");
     }
@@ -155,7 +251,7 @@ void web_server_broadcast_log(const char *fmt, va_list args) {
     cJSON_Delete(root);
 }
 
-void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool b_rl, bool b_rr, bool ll, bool lr) {
+void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool b_rl, bool b_rr, bool ll, bool lr, bool bt_connected) {
     // Send status ~5-10 times a second max to save bandwidth
     static int64_t last_send = 0;
     if (esp_timer_get_time() - last_send < 100000) return; // 100ms
@@ -175,6 +271,8 @@ void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool b_rl, b
 
     cJSON_AddBoolToObject(root, "ll", ll);
     cJSON_AddBoolToObject(root, "lr", lr);
+    
+    cJSON_AddBoolToObject(root, "bt", bt_connected);
 
     const char *json_str = cJSON_PrintUnformatted(root);
     web_server_broadcast_msg(json_str);
