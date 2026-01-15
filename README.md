@@ -149,15 +149,14 @@ To build this project, you need the Espressif IoT Development Framework (ESP-IDF
 
 ### Pairing a Bluetooth Controller
 
-The robot uses Bluetooth Classic HID to connect to gamepads. It is configured to automatically scan for and connect to nearby peripheral devices (Major Class: 0x05) when not connected.
+The robot uses Bluetooth Classic HID to connect to gamepads. It is configured to automatically scan for and connect to nearby **GameSir** controllers (specifically looking for "GameSir" in the device name) to prevent accidental connections to other devices.
 
 1.  **Power on the Robot:** Ensure the ESP32 is powered and the firmware is running.
-2.  **Enable Pairing Mode:** Put your Bluetooth gamepad into pairing mode.
-    *   **PS4 Controller:** Hold `PS Button` + `Share` until the light bar flashes.
-    *   **Xbox Controller:** Press the `Pairing Button` on the top until the logo flashes.
-    *   **Generic Gamepads:** Usually involves holding a combination like `Home` + `X` or a dedicated pair button.
-3.  **Automatic Connection:** The robot will detect the controller and attempt to pair automatically. Once connected:
-    *   The onboard LED (if configured) or the web dashboard will indicate the connection status.
+2.  **Enable Pairing Mode on GameSir Nova Lite:** 
+    *   With the controller powered off, press and hold **A + Home** until the Home indicator rapidly flashes **yellow** (Android/HID Mode).
+    *   *Note: Other modes like Switch (Y+Home) or PC (B+Home) may not be recognized by the current HID parser.*
+3.  **Automatic Connection:** The robot will detect the "GameSir-Nova Lite" and attempt to pair automatically. Once connected:
+    *   The yellow light on the controller will turn steady.
     *   The web dashboard "Controller" status will turn green and show "Connected".
 4.  **Reconnection:** The robot will attempt to reconnect or re-scan if the connection is lost.
 

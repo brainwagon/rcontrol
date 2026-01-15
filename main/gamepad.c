@@ -24,22 +24,31 @@ static void gap_callback(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *par
         esp_bd_addr_t *bda = &param->disc_res.bda;
         uint32_t cod = 0;
         
-        // Find COD in properties
+        char name[32] = {0};
+        
+        // Find properties
         for (int i = 0; i < param->disc_res.num_prop; i++) {
             if (param->disc_res.prop[i].type == ESP_BT_GAP_DEV_PROP_COD) {
                 cod = *(uint32_t *)(param->disc_res.prop[i].val);
-                break;
+            } else if (param->disc_res.prop[i].type == ESP_BT_GAP_DEV_PROP_BDNAME) {
+                size_t len = param->disc_res.prop[i].len;
+                if (len > 31) len = 31;
+                memcpy(name, param->disc_res.prop[i].val, len);
+                name[len] = '\0';
             }
         }
 
-        ESP_LOGI(TAG, "Device found: %02x:%02x:%02x:%02x:%02x:%02x (COD: 0x%06lx)",
-                 (*bda)[0], (*bda)[1], (*bda)[2], (*bda)[3], (*bda)[4], (*bda)[5], cod);
+        if (name[0] != '\0') {
+            ESP_LOGI(TAG, "Device found: %02x:%02x:%02x:%02x:%02x:%02x (COD: 0x%06lx, Name: %s)",
+                    (*bda)[0], (*bda)[1], (*bda)[2], (*bda)[3], (*bda)[4], (*bda)[5], cod, name);
+        }
 
         // Major Device Class (bits 8-12). 0x05 = Peripheral
         uint32_t major_class = (cod >> 8) & 0x1F;
 
-        if (major_class == 0x05) { 
-             ESP_LOGI(TAG, "Found Peripheral! Connecting...");
+        // Filter: Only connect if it's a Peripheral AND contains "GameSir" in the name
+        if (major_class == 0x05 && strstr(name, "GameSir") != NULL) { 
+             ESP_LOGI(TAG, "Found GameSir Controller! Connecting...");
              esp_bt_gap_cancel_discovery();
              esp_hidh_dev_open(*bda, ESP_HID_TRANSPORT_BT, 0);
         }
