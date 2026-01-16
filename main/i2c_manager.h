@@ -6,5 +6,6 @@
 void i2c_manager_init(void);
 void i2c_manager_get_json(cJSON *root);
 void i2c_manager_update_display(const char *ip_addr);
+void i2c_manager_sync_rtc(void);
 
 #endif

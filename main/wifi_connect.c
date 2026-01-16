@@ -13,6 +13,7 @@
 #include "lwip/sys.h"
 #include "mdns.h"
 #include "i2c_manager.h"
+#include "esp_sntp.h"
 
 static const char *TAG = "WIFI";
 
@@ -106,6 +107,11 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // Init SNTP
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_init();
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
 }

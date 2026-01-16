@@ -6,13 +6,11 @@
 #include "esp_timer.h"
 #include "esp_netif.h"
 #include "cJSON.h"
+#include "i2c_manager.h"
 #include <stdio.h>
 
 static const char *TAG = "WEB";
 static httpd_handle_t server = NULL;
-
-// WebSocket file descriptor
-static int ws_fd = -1; 
 
 // Handler for HTML
 static esp_err_t root_get_handler(httpd_req_t *req)
@@ -135,6 +133,13 @@ static esp_err_t help_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t sync_rtc_handler(httpd_req_t *req)
+{
+    i2c_manager_sync_rtc();
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    return ESP_OK;
+}
+
 void web_server_init(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -162,17 +167,23 @@ void web_server_init(void)
         .user_ctx   = NULL
     };
 
+    httpd_uri_t sync_uri = {
+        .uri        = "/sync_rtc",
+        .method     = HTTP_POST,
+        .handler    = sync_rtc_handler,
+        .user_ctx   = NULL
+    };
+
     ESP_LOGI(TAG, "Starting web server on port: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
         httpd_register_uri_handler(server, &root_uri);
         httpd_register_uri_handler(server, &ws_uri);
         httpd_register_uri_handler(server, &help_uri);
+        httpd_register_uri_handler(server, &sync_uri);
     } else {
         ESP_LOGE(TAG, "Error starting server!");
     }
 }
-
-#include "i2c_manager.h"
 
 // Helper to push data to all connected WS clients
 // Note: ESP-IDF's simple WS implementation in examples usually iterates FDs.
@@ -232,7 +243,6 @@ void web_server_broadcast_msg(const char *json_data) {
 
 void web_server_broadcast_log(const char *fmt, va_list args) {
     char buf[256];
-    char json[300];
     vsnprintf(buf, sizeof(buf), fmt, args);
     
     // Escape standard JSON chars if needed, but for logs, basic text is usually fine.

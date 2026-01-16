@@ -125,6 +125,9 @@ static const char index_html[] = R"rawliteral(
           <strong>SSD1306:</strong> <span id="ssd-status">Not Detected</span>
         </div>
         <div id="i2c-none" style="color:#777;">No I2C devices detected</div>
+        <div id="rtc-controls" style="margin-top:10px; display:none;">
+            <button onclick="syncRtc()" style="background:#6200ee; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Sync Time (NTP)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -134,6 +137,16 @@ static const char index_html[] = R"rawliteral(
 
   <script>
     var ws;
+    function syncRtc() {
+        fetch('/sync_rtc', { method: 'POST' })
+            .then(r => r.text())
+            .then(d => {
+                console.log(d);
+                addLog('RTC Sync Request Sent');
+            })
+            .catch(e => console.error(e));
+    }
+
     function connect() {
       ws = new WebSocket('ws://' + location.host + '/ws');
       
@@ -196,6 +209,31 @@ static const char index_html[] = R"rawliteral(
             document.getElementById('ssd-data').style.display = 'block';
             document.getElementById('ssd-status').innerText = i2c.ssd1306;
             hasDev = true;
+        }
+        
+        if (i2c.ds3231) {
+             // Assuming JSON struct like { time: "...", temp: ... }
+             // We don't have a specific div for DS3231 in previous HTML but we can add one or just reuse existing or generic.
+             // Wait, I didn't add ds3231 div in previous steps?
+             // Ah, I missed adding a specific div for ds3231 data display in previous steps? 
+             // Let's check the code I wrote in previous turn for i2c_manager.c:
+             // cJSON_AddItemToObject(i2c_obj, "ds3231", rtc);
+             // The HTML I read earlier didn't have ds3231 div.
+             // But the user asked to add a button IF ds3231 is detected.
+             // I should probably also display the time if I can, but button is key.
+             
+             // Check if we have an element to display it?
+             // I'll assume we can just show the button.
+             document.getElementById('rtc-controls').style.display = 'block';
+             
+             // If we want to show time, we need a div. 
+             // Let's create one dynamically or if I can edit the HTML again?
+             // I already edited HTML to add button.
+             
+             // Let's just make sure button shows up.
+             hasDev = true;
+        } else {
+             document.getElementById('rtc-controls').style.display = 'none';
         }
         
         document.getElementById('i2c-none').style.display = hasDev ? 'none' : 'block';
