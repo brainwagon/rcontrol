@@ -91,8 +91,6 @@ static const char index_html[] = R"rawliteral(
       <div class="bumper-grid">
         <div id="b-fl" class="bumper">Front Left</div>
         <div id="b-fr" class="bumper">Front Right</div>
-        <div id="b-rl" class="bumper">Rear Left</div>
-        <div id="b-rr" class="bumper">Rear Right</div>
       </div>
     </div>
 
@@ -170,8 +168,6 @@ static const char index_html[] = R"rawliteral(
         
         setBumper('fl', d.b[0]);
         setBumper('fr', d.b[1]);
-        setBumper('rl', d.b[2]);
-        setBumper('rr', d.b[3]);
         
         setLed('l', d.ll);
         setLed('r', d.lr);

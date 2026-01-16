@@ -24,8 +24,6 @@
 // Moved Rear bumpers to 16/17 to free up 21/22 for I2C
 #define BUMPER_FRONT_LEFT   32
 #define BUMPER_FRONT_RIGHT  13
-#define BUMPER_REAR_LEFT    16
-#define BUMPER_REAR_RIGHT   17
 
 // I2C Configuration
 #define I2C_SDA_PIN         21

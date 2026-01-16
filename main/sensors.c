@@ -9,8 +9,7 @@ void sensors_init(void) {
     gpio_config_t bumper_conf = {
         .intr_type = GPIO_INTR_DISABLE,
         .mode = GPIO_MODE_INPUT,
-        .pin_bit_mask = (1ULL << BUMPER_FRONT_LEFT) | (1ULL << BUMPER_FRONT_RIGHT) |
-                        (1ULL << BUMPER_REAR_LEFT) | (1ULL << BUMPER_REAR_RIGHT),
+        .pin_bit_mask = (1ULL << BUMPER_FRONT_LEFT) | (1ULL << BUMPER_FRONT_RIGHT),
         .pull_down_en = 0,
         .pull_up_en = 1 // Attempt internal pull-up. If input-only pin, this is ignored and external needed.
     };
@@ -69,7 +68,5 @@ bool sensors_is_bumper_hit(void) {
     // Returns true if ANY bumper is LOW (0)
     if (gpio_get_level(BUMPER_FRONT_LEFT) == 0) return true;
     if (gpio_get_level(BUMPER_FRONT_RIGHT) == 0) return true;
-    if (gpio_get_level(BUMPER_REAR_LEFT) == 0) return true;
-    if (gpio_get_level(BUMPER_REAR_RIGHT) == 0) return true;
     return false;
 }

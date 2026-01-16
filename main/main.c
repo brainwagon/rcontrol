@@ -85,9 +85,7 @@ void app_main(void) {
     while (1) {
         bool hit_fl = gpio_get_level(BUMPER_FRONT_LEFT) == 0;
         bool hit_fr = gpio_get_level(BUMPER_FRONT_RIGHT) == 0;
-        bool hit_rl = gpio_get_level(BUMPER_REAR_LEFT) == 0;
-        bool hit_rr = gpio_get_level(BUMPER_REAR_RIGHT) == 0;
-        bool any_bumper = hit_fl || hit_fr || hit_rl || hit_rr;
+        bool any_bumper = hit_fl || hit_fr;
 
         // Safety: Check bumpers
         if (any_bumper) {
@@ -96,7 +94,7 @@ void app_main(void) {
             lights_set_right(true);
             
             // Update Web Interface (Crash status)
-            web_server_update_status(0, 0, hit_fl, hit_fr, hit_rl, hit_rr, true, true, gamepad_get_state().connected);
+            web_server_update_status(0, 0, hit_fl, hit_fr, true, true, gamepad_get_state().connected);
 
             vTaskDelay(pdMS_TO_TICKS(100));
             lights_set_left(false);
@@ -132,7 +130,7 @@ void app_main(void) {
             }
             
             // Web Update
-            web_server_update_status(left_speed, right_speed, hit_fl, hit_fr, hit_rl, hit_rr, led_l, led_r, true);
+            web_server_update_status(left_speed, right_speed, hit_fl, hit_fr, led_l, led_r, true);
 
         } else {
             motors_stop();
@@ -140,7 +138,7 @@ void app_main(void) {
             bool blink = (xTaskGetTickCount() % 100) < 50;
             lights_set_left(blink);
             
-            web_server_update_status(0, 0, hit_fl, hit_fr, hit_rl, hit_rr, blink, false, false);
+            web_server_update_status(0, 0, hit_fl, hit_fr, blink, false, false);
         }
 
         vTaskDelay(pdMS_TO_TICKS(50)); // 20Hz update rate

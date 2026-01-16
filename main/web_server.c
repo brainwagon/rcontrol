@@ -81,8 +81,6 @@ static esp_err_t help_get_handler(httpd_req_t *req)
     ADD_PIN(US_ECHO_PIN);
     ADD_PIN(BUMPER_FRONT_LEFT);
     ADD_PIN(BUMPER_FRONT_RIGHT);
-    ADD_PIN(BUMPER_REAR_LEFT);
-    ADD_PIN(BUMPER_REAR_RIGHT);
     ADD_PIN(LED_LEFT_TURN);
     ADD_PIN(LED_RIGHT_TURN);
     #undef ADD_PIN
@@ -119,8 +117,6 @@ static esp_err_t help_get_handler(httpd_req_t *req)
     SEND_ROW(US_ECHO_PIN, US_ECHO_PIN);
     SEND_ROW(BUMPER_FRONT_LEFT, BUMPER_FRONT_LEFT);
     SEND_ROW(BUMPER_FRONT_RIGHT, BUMPER_FRONT_RIGHT);
-    SEND_ROW(BUMPER_REAR_LEFT, BUMPER_REAR_LEFT);
-    SEND_ROW(BUMPER_REAR_RIGHT, BUMPER_REAR_RIGHT);
     SEND_ROW(LED_LEFT_TURN, LED_LEFT_TURN);
     SEND_ROW(LED_RIGHT_TURN, LED_RIGHT_TURN);
     
@@ -253,7 +249,7 @@ void web_server_broadcast_log(const char *fmt, va_list args) {
     cJSON_Delete(root);
 }
 
-void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool b_rl, bool b_rr, bool ll, bool lr, bool bt_connected) {
+void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool ll, bool lr, bool bt_connected) {
     // Send status ~5-10 times a second max to save bandwidth
     static int64_t last_send = 0;
     if (esp_timer_get_time() - last_send < 100000) return; // 100ms
@@ -267,8 +263,6 @@ void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool b_rl, b
     cJSON *bumpers = cJSON_CreateArray();
     cJSON_AddItemToArray(bumpers, cJSON_CreateBool(b_fl));
     cJSON_AddItemToArray(bumpers, cJSON_CreateBool(b_fr));
-    cJSON_AddItemToArray(bumpers, cJSON_CreateBool(b_rl));
-    cJSON_AddItemToArray(bumpers, cJSON_CreateBool(b_rr));
     cJSON_AddItemToObject(root, "b", bumpers);
 
     cJSON_AddBoolToObject(root, "ll", ll);
