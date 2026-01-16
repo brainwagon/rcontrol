@@ -21,13 +21,20 @@
 
 // Bumper Microswitches (Active Low usually)
 // Note: Changed to pins with internal Pull-Ups to avoid floating inputs
+// Moved Rear bumpers to 16/17 to free up 21/22 for I2C
 #define BUMPER_FRONT_LEFT   32
 #define BUMPER_FRONT_RIGHT  13
-#define BUMPER_REAR_LEFT    21
-#define BUMPER_REAR_RIGHT   22
+#define BUMPER_REAR_LEFT    16
+#define BUMPER_REAR_RIGHT   17
+
+// I2C Configuration
+#define I2C_SDA_PIN         21
+#define I2C_SCL_PIN         22
+#define I2C_FREQ_HZ         100000
 
 // Lights (LEDs)
 #define LED_LEFT_TURN       5
 #define LED_RIGHT_TURN      4
+#define LED_HEARTBEAT_PIN   2
 
 #endif // CONFIG_H

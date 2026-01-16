@@ -12,4 +12,10 @@ menu "WiFi Configuration"
         help
             Password for the WiFi network.
 
+    config MDNS_HOSTNAME
+        string "mDNS Hostname"
+        default "rcontrol"
+        help
+            Hostname for mDNS (e.g., if set to 'rcontrol', device will be accessible at rcontrol.local)
+
 endmenu

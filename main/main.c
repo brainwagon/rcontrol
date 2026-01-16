@@ -13,6 +13,7 @@
 #include "wifi_connect.h"
 #include "web_server.h"
 #include "config.h"
+#include "i2c_manager.h"
 
 static const char *TAG = "MAIN";
 
@@ -65,6 +66,7 @@ void app_main(void) {
     motors_init();
     lights_init();
     sensors_init();
+    i2c_manager_init();
     
     // 4. Initialize Wi-Fi & Web Server
     ESP_LOGI(TAG, "Connecting to Wi-Fi...");

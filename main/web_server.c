@@ -176,6 +176,8 @@ void web_server_init(void)
     }
 }
 
+#include "i2c_manager.h"
+
 // Helper to push data to all connected WS clients
 // Note: ESP-IDF's simple WS implementation in examples usually iterates FDs.
 // httpd_queue_work is safer for broadcasting from other tasks.
@@ -273,6 +275,9 @@ void web_server_update_status(int ml, int mr, bool b_fl, bool b_fr, bool b_rl, b
     cJSON_AddBoolToObject(root, "lr", lr);
     
     cJSON_AddBoolToObject(root, "bt", bt_connected);
+
+    // Add I2C Data
+    i2c_manager_get_json(root);
 
     const char *json_str = cJSON_PrintUnformatted(root);
     web_server_broadcast_msg(json_str);

@@ -11,6 +11,8 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "mdns.h"
+#include "i2c_manager.h"
 
 static const char *TAG = "WIFI";
 
@@ -19,6 +21,29 @@ static const char *TAG = "WIFI";
 
 static EventGroupHandle_t s_wifi_event_group;
 static int s_retry_num = 0;
+
+static void start_mdns_service()
+{
+    esp_err_t err = mdns_init();
+    if (err) {
+        ESP_LOGE(TAG, "MDNS Init failed: %d", err);
+        return;
+    }
+    //set hostname
+    mdns_hostname_set(CONFIG_MDNS_HOSTNAME);
+    //set default instance
+    mdns_instance_name_set("RControl Robot");
+
+    //structure with TXT records
+    mdns_txt_item_t serviceTxtData[] = {
+        {"board", "esp32"},
+        {"u", "user"}
+    };
+
+    //initialize service
+    mdns_service_add("RControl-Web", "_http", "_tcp", 80, serviceTxtData, 2);
+    ESP_LOGI(TAG, "mDNS service started: %s.local", CONFIG_MDNS_HOSTNAME);
+}
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -39,6 +64,11 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        start_mdns_service();
+        
+        char ip_str[32];
+        snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&event->ip_info.ip));
+        i2c_manager_update_display(ip_str);
     }
 }
 

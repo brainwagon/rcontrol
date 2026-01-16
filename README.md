@@ -31,12 +31,20 @@ Pin mappings are defined in `main/config.h`. Default configuration:
     *   Ultrasonic Trigger: GPIO 18
     *   Ultrasonic Echo: GPIO 19
     *   Bumper Front Left: GPIO 32
-    *   Bumper Front Right: GPIO 35
-    *   Bumper Rear Left: GPIO 34
-    *   Bumper Rear Right: GPIO 39
+    *   Bumper Front Right: GPIO 13
+    *   Bumper Rear Left: GPIO 16 (Changed from 21)
+    *   Bumper Rear Right: GPIO 17 (Changed from 22)
+*   **I2C Bus:**
+    *   SDA: GPIO 21
+    *   SCL: GPIO 22
+    *   *Supported Peripherals:* 
+        *   MPU6050 Accelerometer/Gyro (Address 0x68/0x69)
+        *   INA219 Voltage/Current Sensor (0x40-0x45) - Detection only
+        *   SSD1306 OLED Display (0x3C/0x3D) - Displays Hostname & IP Address
 *   **Lights:**
-    *   Left Turn Signal: GPIO 2
+    *   Left Turn Signal: GPIO 5
     *   Right Turn Signal: GPIO 4
+    *   Heartbeat LED: GPIO 2 (PWM Fading)
 
 ## Wi-Fi Configuration
 
