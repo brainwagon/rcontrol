@@ -110,6 +110,25 @@ static const char index_html[] = R"rawliteral(
       <h3>Controller</h3>
       <div id="bt-status" class="status-indicator">Disconnected</div>
     </div>
+
+    <!-- I2C Sensors -->
+    <div class="box">
+      <h3>I2C Sensors</h3>
+      <div id="i2c-status" style="text-align:left; font-size:0.9em; font-family:monospace;">
+        <div id="mpu-data" style="margin-bottom:5px; display:none;">
+          <strong>MPU6050:</strong><br>
+          Acc: <span id="mpu-ax">0</span>, <span id="mpu-ay">0</span>, <span id="mpu-az">0</span><br>
+          Temp: <span id="mpu-temp">0</span> C
+        </div>
+        <div id="ina-data" style="margin-bottom:5px; display:none;">
+          <strong>INA219:</strong> <span id="ina-status">Not Detected</span>
+        </div>
+        <div id="ssd-data" style="margin-bottom:5px; display:none;">
+          <strong>SSD1306:</strong> <span id="ssd-status">Not Detected</span>
+        </div>
+        <div id="i2c-none" style="color:#777;">Scanning...</div>
+      </div>
+    </div>
   </div>
 
   <h3>System Logs</h3>
@@ -158,6 +177,32 @@ static const char index_html[] = R"rawliteral(
         setLed('r', d.lr);
         
         setBt(d.bt);
+
+        if (d.i2c) updateI2C(d.i2c);
+    }
+
+    function updateI2C(i2c) {
+        var hasDev = false;
+        if (i2c.mpu6050) {
+            document.getElementById('mpu-data').style.display = 'block';
+            document.getElementById('mpu-ax').innerText = i2c.mpu6050.ax;
+            document.getElementById('mpu-ay').innerText = i2c.mpu6050.ay;
+            document.getElementById('mpu-az').innerText = i2c.mpu6050.az;
+            document.getElementById('mpu-temp').innerText = i2c.mpu6050.temp.toFixed(1);
+            hasDev = true;
+        }
+        if (i2c.ina219) {
+            document.getElementById('ina-data').style.display = 'block';
+            document.getElementById('ina-status').innerText = i2c.ina219.status;
+            hasDev = true;
+        }
+        if (i2c.ssd1306) {
+            document.getElementById('ssd-data').style.display = 'block';
+            document.getElementById('ssd-status').innerText = i2c.ssd1306;
+            hasDev = true;
+        }
+        
+        document.getElementById('i2c-none').style.display = hasDev ? 'none' : 'block';
     }
 
     function setBt(connected) {
