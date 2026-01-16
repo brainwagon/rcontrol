@@ -124,7 +124,7 @@ static const char index_html[] = R"rawliteral(
         <div id="ssd-data" style="margin-bottom:5px; display:none;">
           <strong>SSD1306:</strong> <span id="ssd-status">Not Detected</span>
         </div>
-        <div id="i2c-none" style="color:#777;">Scanning...</div>
+        <div id="i2c-none" style="color:#777;">No I2C devices detected</div>
       </div>
     </div>
   </div>
