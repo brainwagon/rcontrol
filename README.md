@@ -170,12 +170,13 @@ The robot uses Bluetooth Classic HID to connect to gamepads. It is configured to
 
 ### Web Dashboard
 
-1.  Open your browser and navigate to the IP address shown in the serial logs (or check your router).
+1.  Open your browser and navigate to `http://rcontrol.local` (or the IP address).
 2.  The dashboard provides real-time status of:
     *   Motor speeds and direction.
     *   Bumper sensor triggers.
     *   Turn signal LED states.
     *   Bluetooth controller connection status.
+    *   **I2C Sensor Status:** Displays data from MPU6050, INA219, etc.
     *   Live system logs.
 
 3.  Visit `/help` on the robot's IP for a detailed pinout and system information page.
