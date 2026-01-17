@@ -6,6 +6,7 @@
 #include "esp_hidh.h"
 #include "esp_hid_common.h"
 #include "esp_gap_bt_api.h"
+#include "esp_gap_ble_api.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -13,6 +14,7 @@ static const char *TAG = "GAMEPAD";
 
 static gamepad_state_t current_state = {0};
 static bool is_scanning = false;
+static bool is_connecting = false;
 
 // Forward declaration
 void start_scan(void);
@@ -25,6 +27,7 @@ static void gap_callback(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *par
         uint32_t cod = 0;
         
         char name[32] = {0};
+        bool name_found = false;
         
         // Find properties
         for (int i = 0; i < param->disc_res.num_prop; i++) {
@@ -35,22 +38,81 @@ static void gap_callback(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *par
                 if (len > 31) len = 31;
                 memcpy(name, param->disc_res.prop[i].val, len);
                 name[len] = '\0';
+                name_found = true;
             }
         }
 
-        if (name[0] != '\0') {
-            ESP_LOGI(TAG, "Device found: %02x:%02x:%02x:%02x:%02x:%02x (COD: 0x%06lx, Name: %s)",
-                    (*bda)[0], (*bda)[1], (*bda)[2], (*bda)[3], (*bda)[4], (*bda)[5], cod, name);
+        if (name_found) {
+            // Filter: Connect if name matches common controller patterns
+            bool name_match = (strstr(name, "GameSir") != NULL) || 
+                              (strstr(name, "Xbox") != NULL) || 
+                              (strstr(name, "Pro Controller") != NULL) || 
+                              (strstr(name, "Wireless Controller") != NULL);
+
+            if (name_match) { 
+                 if (is_connecting || current_state.connected) break;
+
+                 ESP_LOGI(TAG, "Found Controller (%s)! Connecting... (Heap: %lu)", name, esp_get_free_heap_size());
+                 ESP_LOGI(TAG, "Target BDA: %02x:%02x:%02x:%02x:%02x:%02x", 
+                          (*bda)[0], (*bda)[1], (*bda)[2], (*bda)[3], (*bda)[4], (*bda)[5]);
+                 
+                 // Stop scanning and visibility to focus on connection
+                 if (is_scanning) {
+                     esp_bt_gap_cancel_discovery();
+                 }
+                 esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+                 
+                 is_connecting = true;
+
+                 void *dev = esp_hidh_dev_open(*bda, ESP_HID_TRANSPORT_BT, 0);
+                 if (dev == NULL) {
+                     ESP_LOGE(TAG, "Failed to initiate connection to %s (Classic BT)", name);
+                     is_connecting = false;
+                 } else {
+                     ESP_LOGI(TAG, "Initiated connection via Classic BT");
+                 }
+            }
+        } else {
+            // Name not in inquiry response, request it explicitly
+            esp_bt_gap_read_remote_name(*bda);
         }
+        break;
+    }
+    case ESP_BT_GAP_READ_REMOTE_NAME_EVT: {
+        if (param->read_rmt_name.stat == ESP_BT_STATUS_SUCCESS) {
+             char *name = (char *)param->read_rmt_name.rmt_name;
+             
+             bool name_match = (strstr(name, "GameSir") != NULL) || 
+                               (strstr(name, "Xbox") != NULL) || 
+                               (strstr(name, "Pro Controller") != NULL) || 
+                               (strstr(name, "Wireless Controller") != NULL);
+            
+             if (name_match) {
+                 if (is_connecting || current_state.connected) break;
 
-        // Major Device Class (bits 8-12). 0x05 = Peripheral
-        uint32_t major_class = (cod >> 8) & 0x1F;
+                 ESP_LOGI(TAG, "Found Controller (%s)! Connecting... (Heap: %lu)", name, esp_get_free_heap_size());
+                 ESP_LOGI(TAG, "Target BDA: %02x:%02x:%02x:%02x:%02x:%02x", 
+                          param->read_rmt_name.bda[0], param->read_rmt_name.bda[1], 
+                          param->read_rmt_name.bda[2], param->read_rmt_name.bda[3], 
+                          param->read_rmt_name.bda[4], param->read_rmt_name.bda[5]);
+                 
+                 // Stop scanning and visibility to focus on connection
+                 if (is_scanning) {
+                     esp_bt_gap_cancel_discovery();
+                 }
+                 esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
-        // Filter: Only connect if it's a Peripheral AND contains "GameSir" in the name
-        if (major_class == 0x05 && strstr(name, "GameSir") != NULL) { 
-             ESP_LOGI(TAG, "Found GameSir Controller! Connecting...");
-             esp_bt_gap_cancel_discovery();
-             esp_hidh_dev_open(*bda, ESP_HID_TRANSPORT_BT, 0);
+                 is_connecting = true;
+                 
+                 // Cancel discovery not always strictly needed here but good practice before connecting
+                 void *dev = esp_hidh_dev_open(param->read_rmt_name.bda, ESP_HID_TRANSPORT_BT, 0);
+                 if (dev == NULL) {
+                     ESP_LOGE(TAG, "Failed to initiate connection to %s (Classic BT)", name);
+                     is_connecting = false;
+                 } else {
+                     ESP_LOGI(TAG, "Initiated connection via Classic BT");
+                 }
+             }
         }
         break;
     }
@@ -86,6 +148,7 @@ void gamepad_hidh_callback(void *handler_args, esp_event_base_t base, int32_t id
 
     switch (event) {
     case ESP_HIDH_OPEN_EVENT:
+        is_connecting = false; // Finished connecting attempt
         if (param->open.status == ESP_OK) {
             const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
             ESP_LOGI(TAG, "Connected to %02x:%02x:%02x:%02x:%02x:%02x",
@@ -99,35 +162,18 @@ void gamepad_hidh_callback(void *handler_args, esp_event_base_t base, int32_t id
     case ESP_HIDH_CLOSE_EVENT:
         ESP_LOGI(TAG, "Disconnected");
         current_state.connected = false;
+        is_connecting = false;
         // Restart scan
         start_scan();
         break;
-    case ESP_HIDH_INPUT_EVENT:
-        if (param->input.length >= 2) {
-            uint8_t *data = param->input.data;
-            
-            // Map 0-255 to -127 to 127
-            // Y is often inverted (0 is top)
-            // Note: Mapping depends heavily on specific controller.
-            // This is a common mapping for generic HID gamepads.
-            current_state.joy_x = (int)data[0] - 128;
-            current_state.joy_y = (int)data[1] - 128; 
-
-            // Simple deadzone
-            if (current_state.joy_x > -10 && current_state.joy_x < 10) current_state.joy_x = 0;
-            if (current_state.joy_y > -10 && current_state.joy_y < 10) current_state.joy_y = 0;
-
-            if (param->input.length > 5) {
-                current_state.buttons = data[5]; 
-            }
-        }
-        break;
     default:
+        ESP_LOGI(TAG, "HIDH Event: %d", event);
         break;
     }
 }
 
 void gamepad_init(void) {
+    ESP_LOGI(TAG, "Initializing Gamepad Module...");
     esp_err_t ret;
 
     // NVS init is assumed done in main.c
@@ -139,35 +185,57 @@ void gamepad_init(void) {
         ESP_LOGE(TAG, "BT Controller Init Failed");
         return;
     }
+    ESP_LOGI(TAG, "BT Controller Initialized");
 
     ret = esp_bt_controller_enable(ESP_BT_MODE_CLASSIC_BT);
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "BT Controller Enable Failed");
+        ESP_LOGE(TAG, "BT Controller Enable Failed: %s (0x%x)", esp_err_to_name(ret), ret);
         return;
     }
+    ESP_LOGI(TAG, "BT Controller Enabled (Classic)");
 
     ret = esp_bluedroid_init();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Bluedroid Init Failed");
         return;
     }
+    ESP_LOGI(TAG, "Bluedroid Initialized");
 
     ret = esp_bluedroid_enable();
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Bluedroid Enable Failed");
         return;
     }
+    ESP_LOGI(TAG, "Bluedroid Enabled");
+
+    // Set default parameters for Secure Simple Pairing (Classic BT)
+    esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
+    esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_NONE;
+    esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
+    ESP_LOGI(TAG, "Security Parameters Set (Classic)");
 
     // Register GAP Callback for scanning
-    esp_bt_gap_register_callback(gap_callback);
+    ret = esp_bt_gap_register_callback(gap_callback);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "GAP Callback Register Failed");
+        return;
+    }
+    ESP_LOGI(TAG, "GAP Callback Registered");
 
     // Initialize HID Host
     esp_hidh_config_t hidh_config = {
         .callback = gamepad_hidh_callback,
-        .event_stack_size = 4096,
+        .event_stack_size = 6144,
         .callback_arg = NULL,
     };
-    esp_hidh_init(&hidh_config);
+    ESP_LOGI(TAG, "Calling esp_hidh_init... (Waiting 2s)");
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    ret = esp_hidh_init(&hidh_config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "HID Host Init Failed: %s (0x%x)", esp_err_to_name(ret), ret);
+        return;
+    }
+    ESP_LOGI(TAG, "HID Host Initialized");
 
     // Set Scan Mode to allow others to find us (optional, mostly we are scanning them)
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);

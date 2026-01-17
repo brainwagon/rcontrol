@@ -50,6 +50,8 @@ void calculate_skid_steering(int joy_x, int joy_y, int *left_out, int *right_out
 }
 
 void app_main(void) {
+    printf("--- RControl Firmware Starting ---\n");
+
     // 1. Initialize NVS (Required for Bluetooth & WiFi)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -72,6 +74,8 @@ void app_main(void) {
     ESP_LOGI(TAG, "Connecting to Wi-Fi...");
     wifi_init_sta();
     web_server_init();
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
 
     // 5. Initialize Gamepad (Bluetooth)
     ESP_LOGI(TAG, "Initializing Bluetooth...");
