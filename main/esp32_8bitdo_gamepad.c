@@ -47,36 +47,24 @@ void rumble_test_task(void *pvParameters)
     
     ESP_LOGI(TAG, "Starting Rumble Test...");
 
-    // Generic Xbox-style Rumble Packet
-    // ID: 1
-    // Byte 0: Enable Mask (0x08 for motors)
-    // Byte 1: Trigger Left (0x00)
-    // Byte 2: Trigger Right (0x00)
-    // Byte 3: Heavy Motor (0xFF = Strongest)
-    // Byte 4: Light Motor (0xFF = Strongest)
-    // Byte 5: Duration (0xFF = Longest/Continuous)
-    uint8_t rumble_data[] = {0x08, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0x00};
+    // Packet: [Enable, TrgL, TrgR, Heavy, Light, Dur, 0, 0]
     
-    // Note: The ESP HID API handles the Report ID (1) separately in the call
-    esp_err_t ret = esp_hidh_dev_output_set(dev, 0, 1, rumble_data, sizeof(rumble_data));
-    
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Rumble command sent (ON)!");
-    } else {
-        ESP_LOGW(TAG, "Failed to send Rumble ON command: %s. (Note: Device reported output len might be 0)", esp_err_to_name(ret));
-    }
-
-    // Vibrate for 1 second
+    // 1. Strong Rumble (Heavy Motor)
+    ESP_LOGI(TAG, "Rumble: STRONG");
+    uint8_t rumble_strong[] = {0x08, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00};
+    esp_hidh_dev_output_set(dev, 0, 1, rumble_strong, sizeof(rumble_strong));
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    // Turn off
-    memset(rumble_data, 0, sizeof(rumble_data));
-    // Keep Enable mask 0x08 but set magnitudes to 0 ? Or just all 0.
-    // Try sending all 0.
-    ret = esp_hidh_dev_output_set(dev, 0, 1, rumble_data, sizeof(rumble_data));
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Rumble command sent (OFF)!");
-    }
+    // 2. Weak Rumble (Light Motor)
+    ESP_LOGI(TAG, "Rumble: WEAK");
+    uint8_t rumble_weak[] = {0x08, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00};
+    esp_hidh_dev_output_set(dev, 0, 1, rumble_weak, sizeof(rumble_weak));
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // 3. Off
+    ESP_LOGI(TAG, "Rumble: OFF");
+    uint8_t rumble_off[] = {0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    esp_hidh_dev_output_set(dev, 0, 1, rumble_off, sizeof(rumble_off));
 
     vTaskDelete(NULL);
 }
