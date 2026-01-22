@@ -15,6 +15,7 @@
 #include "esp_gattc_api.h"
 #include "esp_hidh.h"
 #include "esp_hid_common.h"
+#include "driver/uart.h"
 
 static const char *TAG = "8BITDO_DEMO";
 
@@ -22,6 +23,7 @@ static const char *TAG = "8BITDO_DEMO";
 extern void esp_hidh_gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 
 static bool is_connected = false;
+static esp_hidh_dev_t *s_connected_dev = NULL;
 
 typedef struct {
     esp_bd_addr_t bda;
@@ -41,32 +43,56 @@ static esp_ble_scan_params_t ble_scan_params = {
     .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
 };
 
-void rumble_test_task(void *pvParameters)
+void send_rumble(uint8_t strong, uint8_t weak) {
+    if (s_connected_dev) {
+        // [Enable, TrgL, TrgR, Heavy, Light, Dur, 0, 0]
+        uint8_t rumble_data[] = {0x08, 0x00, 0x00, strong, weak, 0xFF, 0x00, 0x00};
+        esp_hidh_dev_output_set(s_connected_dev, 0, 1, rumble_data, sizeof(rumble_data));
+        ESP_LOGI(TAG, "Rumble command sent: Strong=%d, Weak=%d", strong, weak);
+    } else {
+        ESP_LOGW(TAG, "Cannot rumble: No device connected.");
+    }
+}
+
+void console_task(void *pvParameters)
 {
-    esp_hidh_dev_t *dev = (esp_hidh_dev_t *)pvParameters;
+    // Configure stdin to be non-blocking or just wait for input
+    // We will assume standard UART is available.
     
-    ESP_LOGI(TAG, "Starting Rumble Test...");
+    // Disable buffering for immediate input (optional, often needed for getchar)
+    setvbuf(stdin, NULL, _IONBF, 0);
 
-    // Packet: [Enable, TrgL, TrgR, Heavy, Light, Dur, 0, 0]
-    
-    // 1. Strong Rumble (Heavy Motor)
-    ESP_LOGI(TAG, "Rumble: STRONG");
-    uint8_t rumble_strong[] = {0x08, 0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00, 0x00};
-    esp_hidh_dev_output_set(dev, 0, 1, rumble_strong, sizeof(rumble_strong));
-    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("\n\n");
+    printf("=================================================\n");
+    printf("Type '1' for STRONG rumble\n");
+    printf("Type '2' for WEAK rumble\n");
+    printf("Type '0' to turn rumble OFF\n");
+    printf("=================================================\n\n");
 
-    // 2. Weak Rumble (Light Motor)
-    ESP_LOGI(TAG, "Rumble: WEAK");
-    uint8_t rumble_weak[] = {0x08, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00};
-    esp_hidh_dev_output_set(dev, 0, 1, rumble_weak, sizeof(rumble_weak));
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-    // 3. Off
-    ESP_LOGI(TAG, "Rumble: OFF");
-    uint8_t rumble_off[] = {0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    esp_hidh_dev_output_set(dev, 0, 1, rumble_off, sizeof(rumble_off));
-
-    vTaskDelete(NULL);
+    while (1) {
+        int c = getchar();
+        if (c != EOF) {
+            switch (c) {
+                case '1':
+                    send_rumble(0xFF, 0x00);
+                    break;
+                case '2':
+                    send_rumble(0x00, 0xFF);
+                    break;
+                case '0':
+                    send_rumble(0x00, 0x00);
+                    break;
+                case '\n':
+                case '\r':
+                    // Ignore newlines
+                    break;
+                default:
+                    printf("Unknown command: %c\n", c);
+                    break;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100)); // Small delay to prevent CPU hogging if getchar is non-blocking
+    }
 }
 
 void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
@@ -82,13 +108,17 @@ void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *
             ESP_LOGI(TAG, "Connected to %s", esp_hidh_dev_name_get(param->open.dev));
             esp_hidh_dev_dump(param->open.dev, stdout);
             is_connected = true;
+            s_connected_dev = param->open.dev;
             
-            // Start Rumble Test
-            xTaskCreate(rumble_test_task, "rumble_test", 2048, param->open.dev, 5, NULL);
-            
+            // Initial rumble pulse
+            send_rumble(0x80, 0x00);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            send_rumble(0x00, 0x00);
+
         } else {
             ESP_LOGE(TAG, "ESP_HIDH_OPEN_EVENT failed: %d", param->open.status);
             is_connected = false;
+            s_connected_dev = NULL;
             // Restart scanning if connection failed
             esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
             esp_ble_gap_start_scanning(0);
@@ -122,6 +152,7 @@ void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *
         const uint8_t *bda = esp_hidh_dev_bda_get(param->close.dev);
         ESP_LOGI(TAG, "ESP_HIDH_CLOSE_EVENT: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(bda));
         is_connected = false;
+        s_connected_dev = NULL;
         // Restart scanning
         esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
         esp_ble_gap_start_scanning(0);
@@ -346,6 +377,9 @@ void app_main(void)
     
     esp_ble_gap_set_scan_params(&ble_scan_params);
     esp_ble_gap_start_scanning(0);
+
+    // Start Console Task
+    xTaskCreate(console_task, "console_task", 4096, NULL, 5, NULL);
 
     // Main Loop: Handle Connection Requests
     connect_req_t req;
