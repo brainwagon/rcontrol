@@ -71,6 +71,8 @@ void console_task(void *pvParameters)
     printf("Type '2' for WEAK rumble (ID 1)\n");
     printf("Type '0' to turn rumble OFF (ID 1)\n");
     printf("Type '3' for STRONG rumble (ID 0 - Boot?)\n");
+    printf("Type '4' for STRONG rumble (ID 3)\n");
+    printf("Type '5' for STRONG rumble (ID 4)\n");
     printf("Type 'p' to toggle Protocol Mode (Report <-> Boot)\n");
     printf("Type 'd' to dump device info\n");
     printf("=================================================\n\n");
@@ -83,6 +85,8 @@ void console_task(void *pvParameters)
                 case '2': send_rumble(0x00, 0xFF, 1); break;
                 case '0': send_rumble(0x00, 0x00, 1); break;
                 case '3': send_rumble(0xFF, 0x00, 0); break;
+                case '4': send_rumble(0xFF, 0x00, 3); break;
+                case '5': send_rumble(0xFF, 0x00, 4); break;
                 case 'p':
                     if (s_connected_dev) {
                         static uint8_t next_proto = ESP_HID_PROTOCOL_MODE_BOOT;
