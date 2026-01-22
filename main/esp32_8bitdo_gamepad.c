@@ -43,12 +43,19 @@ static esp_ble_scan_params_t ble_scan_params = {
     .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
 };
 
-void send_rumble(uint8_t strong, uint8_t weak) {
+void send_rumble(uint8_t strong, uint8_t weak, uint8_t report_id) {
     if (s_connected_dev) {
         // [Enable, TrgL, TrgR, Heavy, Light, Dur, 0, 0]
         uint8_t rumble_data[] = {0x08, 0x00, 0x00, strong, weak, 0xFF, 0x00, 0x00};
-        esp_hidh_dev_output_set(s_connected_dev, 0, 1, rumble_data, sizeof(rumble_data));
-        ESP_LOGI(TAG, "Rumble command sent: Strong=%d, Weak=%d", strong, weak);
+        
+        // Try to send to specified report ID
+        // Note: For BLE, map_index is usually 0.
+        esp_err_t ret = esp_hidh_dev_output_set(s_connected_dev, 0, report_id, rumble_data, sizeof(rumble_data));
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "Rumble command sent to ID %d: Strong=%d, Weak=%d", report_id, strong, weak);
+        } else {
+            ESP_LOGE(TAG, "Failed to send rumble to ID %d: %s", report_id, esp_err_to_name(ret));
+        }
     } else {
         ESP_LOGW(TAG, "Cannot rumble: No device connected.");
     }
@@ -56,42 +63,48 @@ void send_rumble(uint8_t strong, uint8_t weak) {
 
 void console_task(void *pvParameters)
 {
-    // Configure stdin to be non-blocking or just wait for input
-    // We will assume standard UART is available.
-    
-    // Disable buffering for immediate input (optional, often needed for getchar)
     setvbuf(stdin, NULL, _IONBF, 0);
 
     printf("\n\n");
     printf("=================================================\n");
-    printf("Type '1' for STRONG rumble\n");
-    printf("Type '2' for WEAK rumble\n");
-    printf("Type '0' to turn rumble OFF\n");
+    printf("Type '1' for STRONG rumble (ID 1)\n");
+    printf("Type '2' for WEAK rumble (ID 1)\n");
+    printf("Type '0' to turn rumble OFF (ID 1)\n");
+    printf("Type '3' for STRONG rumble (ID 0 - Boot?)\n");
+    printf("Type 'p' to toggle Protocol Mode (Report <-> Boot)\n");
+    printf("Type 'd' to dump device info\n");
     printf("=================================================\n\n");
 
     while (1) {
         int c = getchar();
         if (c != EOF) {
             switch (c) {
-                case '1':
-                    send_rumble(0xFF, 0x00);
+                case '1': send_rumble(0xFF, 0x00, 1); break;
+                case '2': send_rumble(0x00, 0xFF, 1); break;
+                case '0': send_rumble(0x00, 0x00, 1); break;
+                case '3': send_rumble(0xFF, 0x00, 0); break;
+                case 'p':
+                    if (s_connected_dev) {
+                        static uint8_t next_proto = ESP_HID_PROTOCOL_MODE_BOOT;
+                        esp_hidh_dev_set_protocol(s_connected_dev, next_proto);
+                        ESP_LOGI(TAG, "Switched protocol to %s", (next_proto == ESP_HID_PROTOCOL_MODE_REPORT) ? "REPORT" : "BOOT");
+                        next_proto = (next_proto == ESP_HID_PROTOCOL_MODE_REPORT) ? ESP_HID_PROTOCOL_MODE_BOOT : ESP_HID_PROTOCOL_MODE_REPORT;
+                    }
                     break;
-                case '2':
-                    send_rumble(0x00, 0xFF);
-                    break;
-                case '0':
-                    send_rumble(0x00, 0x00);
+                case 'd':
+                    if (s_connected_dev) {
+                        esp_hidh_dev_dump(s_connected_dev, stdout);
+                    }
                     break;
                 case '\n':
                 case '\r':
-                    // Ignore newlines
                     break;
                 default:
                     printf("Unknown command: %c\n", c);
                     break;
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(100)); // Small delay to prevent CPU hogging if getchar is non-blocking
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -110,10 +123,11 @@ void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *
             is_connected = true;
             s_connected_dev = param->open.dev;
             
-            // Initial rumble pulse
-            send_rumble(0x80, 0x00);
-            vTaskDelay(pdMS_TO_TICKS(500));
-            send_rumble(0x00, 0x00);
+            // Try sending MTU request to ensure larger packets can be sent
+            if (esp_hidh_dev_transport_get(s_connected_dev) == ESP_HID_TRANSPORT_BLE) {
+                 // Accessing conn_id is hard without struct definition, but usually MTU exchange is automatic or not needed for 8 bytes.
+                 // However, we can try to rely on the console task for testing.
+            }
 
         } else {
             ESP_LOGE(TAG, "ESP_HIDH_OPEN_EVENT failed: %d", param->open.status);
