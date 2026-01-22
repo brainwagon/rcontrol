@@ -220,9 +220,9 @@ static void bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         }
 
         if (name_found) {
-            ESP_LOGI(TAG, "Classic Found: %s [" ESP_BD_ADDR_STR "] RSSI:%d", device_name, ESP_BD_ADDR_HEX(param->disc_res.bda), rssi);
+            // Filter by name
             if (strstr(device_name, "8BitDo") || strstr(device_name, "Wireless Controller") || strstr(device_name, "Pro Controller")) {
-                ESP_LOGI(TAG, "Classic Target found! Queuing connection...");
+                ESP_LOGI(TAG, "Classic Found Target: %s [" ESP_BD_ADDR_STR "] RSSI:%d. Connecting...", device_name, ESP_BD_ADDR_HEX(param->disc_res.bda), rssi);
                 esp_bt_gap_cancel_discovery();
                 esp_ble_gap_stop_scanning();
                 
@@ -231,6 +231,8 @@ static void bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
                 req.transport = ESP_HID_TRANSPORT_BT;
                 req.ble_addr_type = BLE_ADDR_TYPE_PUBLIC; // Not used for BT
                 xQueueSend(s_connect_queue, &req, 0);
+            } else {
+                // ESP_LOGD(TAG, "Classic Found (Ignored): %s [" ESP_BD_ADDR_STR "]", device_name, ESP_BD_ADDR_HEX(param->disc_res.bda));
             }
         }
         break;
@@ -269,10 +271,9 @@ static void ble_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             if (adv_name) {
                 char name[64] = {0};
                 memcpy(name, adv_name, adv_name_len);
-                ESP_LOGI(TAG, "BLE Found: %s [" ESP_BD_ADDR_STR "] RSSI:%d", name, ESP_BD_ADDR_HEX(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
                 
                 if (strstr(name, "8BitDo") || strstr(name, "Wireless Controller") || strstr(name, "Pro Controller")) {
-                    ESP_LOGI(TAG, "BLE Target found! Queuing connection...");
+                    ESP_LOGI(TAG, "BLE Found Target: %s [" ESP_BD_ADDR_STR "] RSSI:%d. Connecting...", name, ESP_BD_ADDR_HEX(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
                     esp_bt_gap_cancel_discovery();
                     esp_ble_gap_stop_scanning();
                     
@@ -281,7 +282,11 @@ static void ble_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     req.transport = ESP_HID_TRANSPORT_BLE;
                     req.ble_addr_type = scan_result->scan_rst.ble_addr_type;
                     xQueueSend(s_connect_queue, &req, 0);
+                } else {
+                    // ESP_LOGD(TAG, "BLE Found (Ignored): %s", name);
                 }
+            } else {
+                 // ESP_LOGI(TAG, "BLE Found: [Unknown] [" ESP_BD_ADDR_STR "] RSSI:%d", ESP_BD_ADDR_HEX(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
             }
         }
         break;
