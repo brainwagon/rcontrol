@@ -41,6 +41,46 @@ static esp_ble_scan_params_t ble_scan_params = {
     .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
 };
 
+void rumble_test_task(void *pvParameters)
+{
+    esp_hidh_dev_t *dev = (esp_hidh_dev_t *)pvParameters;
+    
+    ESP_LOGI(TAG, "Starting Rumble Test...");
+
+    // Generic Xbox-style Rumble Packet
+    // ID: 1
+    // Byte 0: Enable Mask (0x08 for motors)
+    // Byte 1: Trigger Left (0x00)
+    // Byte 2: Trigger Right (0x00)
+    // Byte 3: Heavy Motor (0xFF = Strongest)
+    // Byte 4: Light Motor (0xFF = Strongest)
+    // Byte 5: Duration (0xFF = Longest/Continuous)
+    uint8_t rumble_data[] = {0x08, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0x00};
+    
+    // Note: The ESP HID API handles the Report ID (1) separately in the call
+    esp_err_t ret = esp_hidh_dev_output_set(dev, 0, 1, rumble_data, sizeof(rumble_data));
+    
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Rumble command sent (ON)!");
+    } else {
+        ESP_LOGW(TAG, "Failed to send Rumble ON command: %s. (Note: Device reported output len might be 0)", esp_err_to_name(ret));
+    }
+
+    // Vibrate for 1 second
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // Turn off
+    memset(rumble_data, 0, sizeof(rumble_data));
+    // Keep Enable mask 0x08 but set magnitudes to 0 ? Or just all 0.
+    // Try sending all 0.
+    ret = esp_hidh_dev_output_set(dev, 0, 1, rumble_data, sizeof(rumble_data));
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "Rumble command sent (OFF)!");
+    }
+
+    vTaskDelete(NULL);
+}
+
 void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
     esp_hidh_event_t event = (esp_hidh_event_t)id;
@@ -54,6 +94,10 @@ void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *
             ESP_LOGI(TAG, "Connected to %s", esp_hidh_dev_name_get(param->open.dev));
             esp_hidh_dev_dump(param->open.dev, stdout);
             is_connected = true;
+            
+            // Start Rumble Test
+            xTaskCreate(rumble_test_task, "rumble_test", 2048, param->open.dev, 5, NULL);
+            
         } else {
             ESP_LOGE(TAG, "ESP_HIDH_OPEN_EVENT failed: %d", param->open.status);
             is_connected = false;
