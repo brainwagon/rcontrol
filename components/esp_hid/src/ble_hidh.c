@@ -568,7 +568,7 @@ static esp_err_t esp_ble_hidh_dev_report_write(esp_hidh_dev_t *dev, size_t map_i
         ESP_LOGW(TAG, "%s report %d takes maximum %d bytes. you have provided %d. Sending anyway.", esp_hid_report_type_str(report_type), report_id, report->value_len, value_len);
         // return ESP_FAIL;
     }
-    return esp_ble_gattc_write_char(hid_gattc_if, dev->ble.conn_id, report->handle, value_len, value, ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NO_MITM);
+    return esp_ble_gattc_write_char(hid_gattc_if, dev->ble.conn_id, report->handle, value_len, value, ESP_GATT_WRITE_TYPE_NO_RSP, ESP_GATT_AUTH_REQ_NO_MITM);
 }
 
 static esp_err_t esp_ble_hidh_dev_report_read(esp_hidh_dev_t *dev, size_t map_index, size_t report_id, int report_type, size_t max_length, uint8_t *value, size_t *value_len)
