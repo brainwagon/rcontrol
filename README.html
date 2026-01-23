@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ESP32 8BitDo Robot Controller</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ESP32 8BitDo Robot Controller</h1>
+</header>
+<h1 id="esp32-8bitdo-robot-controller">ESP32 8BitDo Robot Controller</h1>
+<p>This firmware transforms an ESP32 into a wireless robot controller. It connects to an <strong>8BitDo Ultimate 2C Wireless Controller</strong> (or compatible gamepad) and drives a robot using an <strong>L298 Dual H-Bridge motor driver</strong> with Tank Drive steering.</p>
+<h2 id="system-architecture">System Architecture</h2>
+<p>The project is refactored into modular components for easy integration into larger firmware projects:</p>
+<ul>
+<li><strong><code>gamepad</code> Component:</strong> Handles Bluetooth/HID discovery, connection, and report parsing. It normalizes stick inputs to a range of <code>-1.0</code> to <code>1.0</code>.</li>
+<li><strong><code>motor_driver</code> Component:</strong> Provides a high-level API for controlling L298-style motor drivers using ESP32 <code>LEDC</code> (PWM) and GPIO.</li>
+<li><strong><code>main</code> Application:</strong> Maps the Left Stick Y-axis to the Left Motor and the Right Stick Y-axis to the Right Motor (<strong>Tank Drive</strong>).</li>
+</ul>
+<h2 id="hardware-wiring-pinouts">Hardware Wiring (Pinouts)</h2>
+<h3 id="wiring-checklist">Wiring Checklist</h3>
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Category</th>
+<th style="text-align: left;">L298N Terminal</th>
+<th style="text-align: left;">ESP32 Pin</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><strong>Power</strong></td>
+<td style="text-align: left;">12V</td>
+<td style="text-align: left;">Battery (+)</td>
+<td style="text-align: left;">7V - 12V Input</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">GND</td>
+<td style="text-align: left;">Battery (-) <strong>AND</strong> ESP32 GND</td>
+<td style="text-align: left;"><strong>Common Ground (Essential)</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">5V</td>
+<td style="text-align: left;">ESP32 VIN / 5V</td>
+<td style="text-align: left;">Logic Power for ESP32</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><strong>Left Motor</strong></td>
+<td style="text-align: left;">ENA</td>
+<td style="text-align: left;"><strong>GPIO 32</strong></td>
+<td style="text-align: left;">PWM Speed Control</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">IN1</td>
+<td style="text-align: left;"><strong>GPIO 33</strong></td>
+<td style="text-align: left;">Direction Control</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">IN2</td>
+<td style="text-align: left;"><strong>GPIO 25</strong></td>
+<td style="text-align: left;">Direction Control</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><strong>Right Motor</strong></td>
+<td style="text-align: left;">ENB</td>
+<td style="text-align: left;"><strong>GPIO 26</strong></td>
+<td style="text-align: left;">PWM Speed Control</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">IN3</td>
+<td style="text-align: left;"><strong>GPIO 27</strong></td>
+<td style="text-align: left;">Direction Control</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">IN4</td>
+<td style="text-align: left;"><strong>GPIO 14</strong></td>
+<td style="text-align: left;">Direction Control</td>
+</tr>
+</tbody>
+</table>
+<h3 id="l298n-jumper-hints">L298N Jumper Hints</h3>
+<p>The L298N module has several jumpers that are critical for correct operation:</p>
+<ol type="1">
+<li><strong>5V Enable Jumper (EN_5V):</strong>
+<ul>
+<li><strong>Keep it ON</strong> if your battery is between 7V and 12V. This enables the onboard 78M05 regulator to provide 5V power to the logic terminal and the ESP32.</li>
+<li><strong>Remove it</strong> if your battery is &gt; 12V. You will need to provide a separate 5V supply to the 5V terminal.</li>
+</ul></li>
+<li><strong>ENA / ENB Jumpers:</strong>
+<ul>
+<li><strong>REMOVE these jumpers.</strong> These jumpers typically pull the Enable pins to 5V (Full Speed). Since the ESP32 is controlling the speed via PWM on GPIO 32 and 26, you must remove the jumpers and connect the ESP32 pins to the top pins of these headers.</li>
+</ul></li>
+<li><strong>GND Connection:</strong>
+<ul>
+<li>Ensure the <strong>GND</strong> terminal of the L298N is connected to both the battery negative and the ESP32 GND pin. Without this common ground, the PWM signals will not work.</li>
+</ul></li>
+</ol>
+<h2 id="features">Features</h2>
+<ul>
+<li><strong>Dual Mode Bluetooth:</strong> Supports both Classic Bluetooth and BLE connection attempts.</li>
+<li><strong>Auto-Connect:</strong> Automatically scans for and connects to devices matching “8BitDo”, “Wireless Controller”, or “Pro Controller”.</li>
+<li><strong>Tank Drive Steering:</strong> Intuitive control using the two analog sticks.</li>
+<li><strong>PWM Speed Control:</strong> Smooth acceleration and deceleration using the ESP32 LEDC peripheral (10kHz frequency).</li>
+</ul>
+<h2 id="build-environment">Build Environment</h2>
+<ul>
+<li><strong>SDK:</strong> ESP-IDF v6.1-dev</li>
+<li><strong>Target:</strong> ESP32</li>
+</ul>
+<h2 id="how-to-build-and-flash">How to Build and Flash</h2>
+<ol type="1">
+<li><strong>Set up ESP-IDF:</strong> Ensure your <code>idf.py</code> environment is active.</li>
+<li><strong>Navigate to project directory:</strong> <code>bash     cd esp32_8bitdo_gamepad</code></li>
+<li><strong>Build:</strong> <code>bash     idf.py build</code></li>
+<li><strong>Flash and Monitor:</strong> Replace <code>/dev/ttyUSB0</code> with your device port. <code>bash     idf.py -p /dev/ttyUSB0 flash monitor</code></li>
+</ol>
+<h2 id="development-history-troubleshooting">Development History &amp; Troubleshooting</h2>
+<p>This project evolved through several iterations to address specific crashes and connectivity issues:</p>
+<ol type="1">
+<li><strong>Connection Deadlocks:</strong> Implemented a FreeRTOS Queue to handle connection requests outside of the Bluetooth callback context.</li>
+<li><strong>Protocol Mode:</strong> The gamepad component automatically sends a request to switch the controller to <strong>Report Protocol Mode</strong> upon connection. This is required to receive analog stick data rather than just digital “boot” mode events.</li>
+<li><strong>Modularization:</strong> Extracted the core Bluetooth and Motor logic into standalone components (<code>gamepad</code> and <code>motor_driver</code>) to make the main application clean and easy to modify.</li>
+</ol>
+<h2 id="troubleshooting-motor-direction">Troubleshooting Motor Direction</h2>
+<p>If your robot moves backward when pushing the sticks forward: - <strong>Option A:</strong> Swap the wires connecting the motor to the L298. - <strong>Option B:</strong> Swap the <code>IN1</code>/<code>IN2</code> (or <code>IN3</code>/<code>IN4</code>) pin definitions in <code>main/esp32_8bitdo_gamepad.c</code>. - <strong>Option C:</strong> Invert the speed value in <code>input_callback</code> (e.g., <code>motor_driver_set_speed(-state-&gt;left_stick_y, -state-&gt;right_stick_y)</code>).</p>
+</body>
+</html>

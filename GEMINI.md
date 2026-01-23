@@ -8,7 +8,7 @@ The firmware automatically scans for specific controller names ("8BitDo", "Wirel
 ## Architecture & Conventions
 
 ### Core Logic
-- **Entry Point:** `main/esp32_8bitdo_gamepad.c`
+- **Entry Point:** `main/rcontrol.c`
 - **Bluetooth Stack:** Bluedroid (Dual Mode: Classic BT + BLE).
 - **HID Component:** Uses a local copy of `esp_hid` in `components/esp_hid` to handle HID transport and report parsing.
 
@@ -39,7 +39,7 @@ To prevent deadlocks common in Bluetooth callbacks:
 
 ## Key Files
 
-- **`main/esp32_8bitdo_gamepad.c`**:
+- **`main/rcontrol.c`**:
     - `app_main`: Initializes BT stack, HID Host, and processes connection queue.
     - `bt_gap_cb` / `ble_gap_cb`: Handles scanning and discovery.
     - `hidh_callback`: Handles HID events (Open, Input, Close).
@@ -54,3 +54,40 @@ Once running, you can type these characters into the serial monitor:
 
 - `p`: Toggle Protocol Mode (Report <-> Boot)
 - `d`: Dump device info (features, report maps)
+
+## Hardware Mapping (Linux Environment)
+**Crucial:** This mapping was empirically determined on Linux. Mappings may shift on Windows/Android.
+
+*   **Vendor ID:** `2dc8`
+*   **Product ID:** `301b` (sometimes varies)
+
+### Buttons
+| Logic | ID | Physical |
+| :--- | :--- | :--- |
+| **0** | `btn-a` | A |
+| **1** | `btn-b` | B |
+| **2** | `btn-l4` | L4 (Extra Left Bumper) |
+| **3** | `btn-x` | X |
+| **4** | `btn-y` | Y |
+| **5** | `btn-r4` | R4 (Extra Right Bumper) |
+| **6** | `btn-l1` | L1 (Bumper) |
+| **7** | `btn-r1` | R1 (Bumper) |
+| **8** | `btn-l2` | L2 (Trigger Digital) |
+| **9** | `btn-r2` | R2 (Trigger Digital) |
+| **10** | `btn-view` | View (Select/Minus) |
+| **11** | `btn-menu` | Menu (Start/Plus) |
+| **12** | `btn-home` | Home (Center) |
+| **13** | `btn-l3` | L3 (Stick Click) |
+| **14** | `btn-r3` | R3 (Stick Click) |
+
+### Axes
+*   **Ax0 / Ax1:** Left Stick (X / Y)
+*   **Ax2:** Right Stick X
+*   **Ax5:** Right Stick Y (Note: Non-standard index)
+*   **Ax3:** Left Trigger (Analog)
+*   **Ax4:** Right Trigger (Analog)
+*   **Ax9:** D-Pad (Hat Switch)
+    *   Up: ~ -1.0
+    *   Right: ~ -0.43
+    *   Down: ~ 0.14
+    *   Left: ~ 0.71

@@ -1,0 +1,134 @@
+#include <stdio.h>
+#include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_log.h"
+#include "gamepad.h"
+#include "motor_driver.h"
+#include "ssd1306.h"
+
+static const char *TAG = "ROBOT_MAIN";
+static volatile float g_speed_left = 0.0f;
+static volatile float g_speed_right = 0.0f;
+
+#define I2C_SDA 21
+#define I2C_SCL 22
+
+// Pin Configuration
+// Avoid strapping pins (0, 2, 5, 12, 15) if possible or ensure correct pull during boot.
+// We use:
+// Left Motor: ENA=32, IN1=33, IN2=25
+// Right Motor: ENB=26, IN3=27, IN4=14 (14 is safe for output)
+#define MOTOR_L_ENA 32
+#define MOTOR_L_IN1 33
+#define MOTOR_L_IN2 25
+
+#define MOTOR_R_ENB 26
+#define MOTOR_R_IN3 27
+#define MOTOR_R_IN4 14
+
+#define PWM_FREQ_HZ 10000 // 10kHz
+
+void input_callback(const gamepad_state_t *state) {
+    // Tank Drive Mixing
+    // Just update global state. The control task will apply it.
+    g_speed_left = state->left_stick_y;
+    g_speed_right = state->right_stick_y;
+}
+
+void motor_control_task(void *arg) {
+    float last_log_l = 0.0f;
+    float last_log_r = 0.0f;
+    bool was_moving = false;
+    int loop_count = 0;
+
+    while (1) {
+        float cur_l = g_speed_left;
+        float cur_r = g_speed_right;
+        bool is_moving = (fabs(cur_l) > 0.05f || fabs(cur_r) > 0.05f);
+
+        // Apply speed safely in this task (approx 50Hz)
+        motor_driver_set_speed(cur_l, cur_r);
+
+        // Logging Logic
+        if (++loop_count >= 5) { // Every 100ms
+            loop_count = 0;
+
+            // Update Display
+            char buf[20];
+            ssd1306_clear();
+            ssd1306_draw_string(0, 0, "Robot Status");
+            
+            snprintf(buf, sizeof(buf), "L: %+.2f", cur_l);
+            ssd1306_draw_string(0, 16, buf);
+            
+            snprintf(buf, sizeof(buf), "R: %+.2f", cur_r);
+            ssd1306_draw_string(0, 24, buf);
+
+            if (is_moving) {
+                ssd1306_draw_string(0, 40, "MOVING");
+            } else {
+                ssd1306_draw_string(0, 40, "STOPPED");
+            }
+            ssd1306_update();
+
+            if (is_moving) {
+                if (cur_l != last_log_l || cur_r != last_log_r) {
+                    ESP_LOGI(TAG, "Motor Speed - L: %.2f | R: %.2f", cur_l, cur_r);
+                    last_log_l = cur_l;
+                    last_log_r = cur_r;
+                }
+                was_moving = true;
+            } else if (was_moving) {
+                // Just stopped
+                ESP_LOGI(TAG, "Motor Stopped");
+                last_log_l = cur_l;
+                last_log_r = cur_r;
+                was_moving = false;
+            } else {
+                // Stayed stopped, update last values to avoid noise
+                last_log_l = cur_l;
+                last_log_r = cur_r;
+            }
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+}
+
+void app_main(void) {
+    ESP_LOGI(TAG, "Starting Robot Controller...");
+
+    // Initialize Motors
+    motor_driver_config_t motor_cfg = {
+        .gpio_ena = MOTOR_L_ENA,
+        .gpio_in1 = MOTOR_L_IN1,
+        .gpio_in2 = MOTOR_L_IN2,
+        .gpio_enb = MOTOR_R_ENB,
+        .gpio_in3 = MOTOR_R_IN3,
+        .gpio_in4 = MOTOR_R_IN4,
+        .pwm_freq_hz = PWM_FREQ_HZ
+    };
+    ESP_ERROR_CHECK(motor_driver_init(&motor_cfg));
+
+    // Initialize Display
+    if (ssd1306_init(I2C_SDA, I2C_SCL) == ESP_OK) {
+        ssd1306_draw_string(0, 0, "Robot Controller");
+        ssd1306_draw_string(0, 16, "Initializing...");
+        ssd1306_update();
+    } else {
+        ESP_LOGE(TAG, "SSD1306 Init Failed");
+    }
+
+    // Initialize Gamepad
+    gamepad_set_input_callback(input_callback);
+    esp_err_t ret = gamepad_init();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Gamepad Init Failed: %s", esp_err_to_name(ret));
+        return;
+    }
+    
+    xTaskCreate(motor_control_task, "motor_ctrl", 4096, NULL, 5, NULL);
+
+    ESP_LOGI(TAG, "System Ready. Waiting for controller...");
+}
