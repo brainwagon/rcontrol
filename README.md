@@ -58,3 +58,6 @@ This project evolved through several iterations to address specific crashes and 
 
 ## Configuration
 The project relies on `sdkconfig.defaults` to ensure the Bluetooth stack is correctly configured for Dual Mode with HID Host support.
+
+## TODO
+- [ ] Investigate how to trigger/enable the vibration sensor (rumble) for this controller. Previous attempts using standard HID output reports were unsuccessful.

@@ -43,36 +43,12 @@ static esp_ble_scan_params_t ble_scan_params = {
     .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
 };
 
-void send_rumble(uint8_t strong, uint8_t weak, uint8_t report_id) {
-    if (s_connected_dev) {
-        // [Enable, TrgL, TrgR, Heavy, Light, Dur, 0, 0]
-        uint8_t rumble_data[] = {0x08, 0x00, 0x00, strong, weak, 0xFF, 0x00, 0x00};
-        
-        // Try to send to specified report ID
-        // Note: For BLE, map_index is usually 0.
-        esp_err_t ret = esp_hidh_dev_output_set(s_connected_dev, 0, report_id, rumble_data, sizeof(rumble_data));
-        if (ret == ESP_OK) {
-            ESP_LOGI(TAG, "Rumble command sent to ID %d: Strong=%d, Weak=%d", report_id, strong, weak);
-        } else {
-            ESP_LOGE(TAG, "Failed to send rumble to ID %d: %s", report_id, esp_err_to_name(ret));
-        }
-    } else {
-        ESP_LOGW(TAG, "Cannot rumble: No device connected.");
-    }
-}
-
 void console_task(void *pvParameters)
 {
     setvbuf(stdin, NULL, _IONBF, 0);
 
     printf("\n\n");
     printf("=================================================\n");
-    printf("Type '1' for STRONG rumble (ID 1)\n");
-    printf("Type '2' for WEAK rumble (ID 1)\n");
-    printf("Type '0' to turn rumble OFF (ID 1)\n");
-    printf("Type '3' for STRONG rumble (ID 0 - Boot?)\n");
-    printf("Type '4' for STRONG rumble (ID 3)\n");
-    printf("Type '5' for STRONG rumble (ID 4)\n");
     printf("Type 'p' to toggle Protocol Mode (Report <-> Boot)\n");
     printf("Type 'd' to dump device info\n");
     printf("=================================================\n\n");
@@ -81,12 +57,6 @@ void console_task(void *pvParameters)
         int c = getchar();
         if (c != EOF) {
             switch (c) {
-                case '1': send_rumble(0xFF, 0x00, 1); break;
-                case '2': send_rumble(0x00, 0xFF, 1); break;
-                case '0': send_rumble(0x00, 0x00, 1); break;
-                case '3': send_rumble(0xFF, 0x00, 0); break;
-                case '4': send_rumble(0xFF, 0x00, 3); break;
-                case '5': send_rumble(0xFF, 0x00, 4); break;
                 case 'p':
                     if (s_connected_dev) {
                         static uint8_t next_proto = ESP_HID_PROTOCOL_MODE_BOOT;
