@@ -6,6 +6,7 @@
 #include "gamepad.h"
 #include "motor_driver.h"
 #include "ssd1306.h"
+#include "st7735.h"
 
 static const char *TAG = "ROBOT_MAIN";
 static volatile float g_speed_left = 0.0f;
@@ -13,7 +14,12 @@ static volatile float g_speed_right = 0.0f;
 static volatile gamepad_status_t g_gamepad_status = GAMEPAD_STATUS_SCANNING;
 static volatile bool g_just_connected = false;
 
+#if CONFIG_ENABLE_ST7735
+static st7735_handle_t g_st7735_devs[CONFIG_ST7735_NUM_DEVS];
+#endif
+
 #define I2C_SDA 21
+
 #define I2C_SCL 22
 
 // Pin Configuration
@@ -72,6 +78,11 @@ void motor_control_task(void *arg) {
 
             // Update Display
             ssd1306_clear();
+#if CONFIG_ENABLE_ST7735
+            for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
+                st7735_clear(g_st7735_devs[i], ST7735_BLACK);
+            }
+#endif
 
             if (g_gamepad_status == GAMEPAD_STATUS_CONNECTED) {
                 if (paired_ticks > 0) {
@@ -79,6 +90,11 @@ void motor_control_task(void *arg) {
                     // Center "PAIRED" roughly
                     // Font width ~8px? "PAIRED" is 6 chars -> 48px. Screen 128. (128-48)/2 = 40.
                     ssd1306_draw_string(40, 24, "PAIRED");
+#if CONFIG_ENABLE_ST7735
+                    for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
+                        st7735_draw_string(g_st7735_devs[i], 40, 70, "PAIRED", ST7735_GREEN, ST7735_BLACK);
+                    }
+#endif
                 } else {
                     // Normal Telemetry
                     char buf[20];
@@ -95,17 +111,39 @@ void motor_control_task(void *arg) {
                     } else {
                         ssd1306_draw_string(0, 40, "STOPPED");
                     }
+
+#if CONFIG_ENABLE_ST7735
+                    for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
+                        st7735_draw_string(g_st7735_devs[i], 10, 10, "Robot Status", ST7735_YELLOW, ST7735_BLACK);
+                        snprintf(buf, sizeof(buf), "L: %+.2f", cur_l);
+                        st7735_draw_string(g_st7735_devs[i], 10, 30, buf, ST7735_WHITE, ST7735_BLACK);
+                        snprintf(buf, sizeof(buf), "R: %+.2f", cur_r);
+                        st7735_draw_string(g_st7735_devs[i], 10, 40, buf, ST7735_WHITE, ST7735_BLACK);
+                        if (is_moving) st7735_draw_string(g_st7735_devs[i], 10, 60, "MOVING", ST7735_RED, ST7735_BLACK);
+                    }
+#endif
                 }
             } else if (g_gamepad_status == GAMEPAD_STATUS_CONNECTING) {
                 // Center "PAIRING" (7 chars -> 56px) -> 36
                 ssd1306_draw_string(36, 24, "PAIRING");
+#if CONFIG_ENABLE_ST7735
+                for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
+                    st7735_draw_string(g_st7735_devs[i], 36, 70, "PAIRING", ST7735_YELLOW, ST7735_BLACK);
+                }
+#endif
             } else {
                 // SCANNING or DISCONNECTED or BOOT -> Show "BOOT" per request
                 // Center "BOOT" (4 chars -> 32px) -> 48
                 ssd1306_draw_string(48, 24, "BOOT");
+#if CONFIG_ENABLE_ST7735
+                for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
+                    st7735_draw_string(g_st7735_devs[i], 48, 70, "BOOT", ST7735_WHITE, ST7735_BLACK);
+                }
+#endif
             }
             
             ssd1306_update();
+
 
             if (is_moving) {
 
@@ -155,7 +193,44 @@ void app_main(void) {
         ESP_LOGE(TAG, "SSD1306 Init Failed");
     }
 
+#if CONFIG_ENABLE_ST7735
+    ESP_LOGI(TAG, "Initializing ST7735 SPI Displays...");
+    spi_bus_config_t buscfg = {
+        .miso_io_num = -1, // No MISO for now
+        .mosi_io_num = CONFIG_ST7735_PIN_MOSI,
+        .sclk_io_num = CONFIG_ST7735_PIN_SCLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = ST7735_WIDTH * ST7735_HEIGHT * 2,
+    };
+    esp_err_t ret_spi = spi_bus_initialize((spi_host_device_t)(CONFIG_ST7735_SPI_HOST - 1), &buscfg, SPI_DMA_CH_AUTO);
+    if (ret_spi == ESP_OK) {
+        st7735_config_t cfg1 = {
+            .sclk_pin = CONFIG_ST7735_PIN_SCLK,
+            .mosi_pin = CONFIG_ST7735_PIN_MOSI,
+            .dc_pin = CONFIG_ST7735_PIN_DC,
+            .rst_pin = CONFIG_ST7735_PIN_RST,
+            .cs_pin = CONFIG_ST7735_PIN_CS1,
+            .host = (spi_host_device_t)(CONFIG_ST7735_SPI_HOST - 1),
+        };
+        st7735_init(&cfg1, &g_st7735_devs[0]);
+        st7735_clear(g_st7735_devs[0], ST7735_BLACK);
+        st7735_draw_string(g_st7735_devs[0], 48, 70, "BOOT", ST7735_WHITE, ST7735_BLACK);
+
+#if CONFIG_ST7735_COUNT_2
+        st7735_config_t cfg2 = cfg1;
+        cfg2.cs_pin = CONFIG_ST7735_PIN_CS2;
+        st7735_init(&cfg2, &g_st7735_devs[1]);
+        st7735_clear(g_st7735_devs[1], ST7735_BLACK);
+        st7735_draw_string(g_st7735_devs[1], 48, 70, "BOOT", ST7735_WHITE, ST7735_BLACK);
+#endif
+    } else {
+        ESP_LOGE(TAG, "SPI Bus Init Failed: %d", ret_spi);
+    }
+#endif
+
     // Initialize Gamepad
+
     gamepad_set_input_callback(input_callback);
     gamepad_set_connection_callback(connection_callback);
     esp_err_t ret = gamepad_init();

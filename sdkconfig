@@ -702,6 +702,15 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# ST7735 Display Configuration
+#
+# default:
+# CONFIG_ENABLE_ST7735 is not set
+# default:
+CONFIG_ST7735_NUM_DEVS=0
+# end of ST7735 Display Configuration
+
+#
 # Compiler options
 #
 # default:
