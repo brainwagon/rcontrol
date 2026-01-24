@@ -1,62 +1,72 @@
-menu "ST7735 Display Configuration"
+menu "Display Configuration"
 
-    config ENABLE_ST7735
-        bool "Enable ST7735 TFT Display"
-        default n
-        help
-            Enable support for ST7735 1.8" SPI TFT modules.
+    menu "SSD1306 (I2C) Configuration"
+        config ENABLE_SSD1306
+            bool "Enable SSD1306 OLED Display"
+            default y
+            help
+                Enable support for SSD1306 0.96" I2C OLED modules.
+    endmenu
 
-    choice ST7735_COUNT
-        prompt "Number of ST7735 Instances"
-        depends on ENABLE_ST7735
-        default ST7735_COUNT_1
+    menu "ST7735 (SPI) Configuration"
+        config ENABLE_ST7735
+            bool "Enable ST7735 TFT Display"
+            default n
+            help
+                Enable support for ST7735 1.8" SPI TFT modules.
 
-        config ST7735_COUNT_1
-            bool "1 Display"
-        config ST7735_COUNT_2
-            bool "2 Displays"
-    endchoice
+        choice ST7735_COUNT
+            prompt "Number of ST7735 Instances"
+            depends on ENABLE_ST7735
+            default ST7735_COUNT_1
 
-    config ST7735_NUM_DEVS
-        int
-        default 1 if ST7735_COUNT_1
-        default 2 if ST7735_COUNT_2
-        default 0
+            config ST7735_COUNT_1
+                bool "1 Display"
+            config ST7735_COUNT_2
+                bool "2 Displays"
+        endchoice
 
-    config ST7735_SPI_HOST
-        int "SPI Host ID (1=SPI2/HSPI, 2=SPI3/VSPI)"
-        depends on ENABLE_ST7735
-        default 2
-        range 1 2
+        config ST7735_NUM_DEVS
+            int
+            default 1 if ST7735_COUNT_1
+            default 2 if ST7735_COUNT_2
+            default 0
 
-    config ST7735_PIN_SCLK
-        int "SCLK Pin"
-        depends on ENABLE_ST7735
-        default 18
+        config ST7735_SPI_HOST
+            int "SPI Host ID (1=SPI2/HSPI, 2=SPI3/VSPI)"
+            depends on ENABLE_ST7735
+            default 2
+            range 1 2
 
-    config ST7735_PIN_MOSI
-        int "MOSI Pin"
-        depends on ENABLE_ST7735
-        default 23
+        config ST7735_PIN_SCLK
+            int "SCLK Pin"
+            depends on ENABLE_ST7735
+            default 18
 
-    config ST7735_PIN_DC
-        int "DC (Data/Command) Pin"
-        depends on ENABLE_ST7735
-        default 17
+        config ST7735_PIN_MOSI
+            int "MOSI Pin"
+            depends on ENABLE_ST7735
+            default 23
 
-    config ST7735_PIN_RST
-        int "RST (Reset) Pin"
-        depends on ENABLE_ST7735
-        default 16
+        config ST7735_PIN_DC
+            int "DC (Data/Command) Pin"
+            depends on ENABLE_ST7735
+            default 17
 
-    config ST7735_PIN_CS1
-        int "CS Pin (Display 1)"
-        depends on ENABLE_ST7735
-        default 5
+        config ST7735_PIN_RST
+            int "RST (Reset) Pin"
+            depends on ENABLE_ST7735
+            default 16
 
-    config ST7735_PIN_CS2
-        int "CS Pin (Display 2)"
-        depends on ENABLE_ST7735 && ST7735_COUNT_2
-        default 4
+        config ST7735_PIN_CS1
+            int "CS Pin (Display 1)"
+            depends on ENABLE_ST7735
+            default 5
+
+        config ST7735_PIN_CS2
+            int "CS Pin (Display 2)"
+            depends on ENABLE_ST7735 && ST7735_COUNT_2
+            default 4
+    endmenu
 
 endmenu

@@ -7,13 +7,12 @@
 #define SSD1306_HEIGHT 64
 
 /**
- * @brief Initialize the SSD1306 display on the specified I2C pins.
+ * @brief Initialize the SSD1306 display.
+ * Assumes I2C bus is already initialized.
  * 
- * @param sda_pin GPIO number for SDA
- * @param scl_pin GPIO number for SCL
  * @return esp_err_t ESP_OK on success
  */
-esp_err_t ssd1306_init(int sda_pin, int scl_pin);
+esp_err_t ssd1306_init(void);
 
 /**
  * @brief Clear the internal frame buffer.

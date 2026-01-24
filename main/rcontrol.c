@@ -3,10 +3,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include "driver/i2c.h"
 #include "gamepad.h"
 #include "motor_driver.h"
+#if CONFIG_ENABLE_SSD1306
 #include "ssd1306.h"
+#endif
 #include "st7735.h"
+
 
 static const char *TAG = "ROBOT_MAIN";
 static volatile float g_speed_left = 0.0f;
@@ -21,6 +25,18 @@ static st7735_handle_t g_st7735_devs[CONFIG_ST7735_NUM_DEVS];
 #define I2C_SDA 21
 
 #define I2C_SCL 22
+
+
+
+#define I2C_MASTER_NUM              0
+
+#define I2C_MASTER_FREQ_HZ          400000
+
+#define I2C_MASTER_TX_BUF_DISABLE   0
+
+#define I2C_MASTER_RX_BUF_DISABLE   0
+
+
 
 // Pin Configuration
 // Avoid strapping pins (0, 2, 5, 12, 15) if possible or ensure correct pull during boot.
@@ -77,7 +93,9 @@ void motor_control_task(void *arg) {
             loop_count = 0;
 
             // Update Display
+#if CONFIG_ENABLE_SSD1306
             ssd1306_clear();
+#endif
 #if CONFIG_ENABLE_ST7735
             for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
                 st7735_clear(g_st7735_devs[i], ST7735_BLACK);
@@ -87,9 +105,11 @@ void motor_control_task(void *arg) {
             if (g_gamepad_status == GAMEPAD_STATUS_CONNECTED) {
                 if (paired_ticks > 0) {
                     paired_ticks--;
+#if CONFIG_ENABLE_SSD1306
                     // Center "PAIRED" roughly
                     // Font width ~8px? "PAIRED" is 6 chars -> 48px. Screen 128. (128-48)/2 = 40.
                     ssd1306_draw_string(40, 24, "PAIRED");
+#endif
 #if CONFIG_ENABLE_ST7735
                     for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
                         st7735_draw_string(g_st7735_devs[i], 40, 70, "PAIRED", ST7735_GREEN, ST7735_BLACK);
@@ -98,6 +118,7 @@ void motor_control_task(void *arg) {
                 } else {
                     // Normal Telemetry
                     char buf[20];
+#if CONFIG_ENABLE_SSD1306
                     ssd1306_draw_string(0, 0, "Robot Status");
                     
                     snprintf(buf, sizeof(buf), "L: %+.2f", cur_l);
@@ -111,6 +132,7 @@ void motor_control_task(void *arg) {
                     } else {
                         ssd1306_draw_string(0, 40, "STOPPED");
                     }
+#endif
 
 #if CONFIG_ENABLE_ST7735
                     for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
@@ -124,17 +146,21 @@ void motor_control_task(void *arg) {
 #endif
                 }
             } else if (g_gamepad_status == GAMEPAD_STATUS_CONNECTING) {
+#if CONFIG_ENABLE_SSD1306
                 // Center "PAIRING" (7 chars -> 56px) -> 36
                 ssd1306_draw_string(36, 24, "PAIRING");
+#endif
 #if CONFIG_ENABLE_ST7735
                 for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
                     st7735_draw_string(g_st7735_devs[i], 36, 70, "PAIRING", ST7735_YELLOW, ST7735_BLACK);
                 }
 #endif
             } else {
+#if CONFIG_ENABLE_SSD1306
                 // SCANNING or DISCONNECTED or BOOT -> Show "BOOT" per request
                 // Center "BOOT" (4 chars -> 32px) -> 48
                 ssd1306_draw_string(48, 24, "BOOT");
+#endif
 #if CONFIG_ENABLE_ST7735
                 for (int i = 0; i < CONFIG_ST7735_NUM_DEVS; i++) {
                     st7735_draw_string(g_st7735_devs[i], 48, 70, "BOOT", ST7735_WHITE, ST7735_BLACK);
@@ -142,7 +168,10 @@ void motor_control_task(void *arg) {
 #endif
             }
             
+#if CONFIG_ENABLE_SSD1306
             ssd1306_update();
+#endif
+
 
 
             if (is_moving) {
@@ -185,13 +214,28 @@ void app_main(void) {
     };
     ESP_ERROR_CHECK(motor_driver_init(&motor_cfg));
 
+    // Initialize I2C Bus
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_SDA,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_io_num = I2C_SCL,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ,
+    };
+    ESP_ERROR_CHECK(i2c_param_config(I2C_MASTER_NUM, &conf));
+    ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0));
+
+#if CONFIG_ENABLE_SSD1306
     // Initialize Display
-    if (ssd1306_init(I2C_SDA, I2C_SCL) == ESP_OK) {
+    if (ssd1306_init() == ESP_OK) {
         ssd1306_draw_string(48, 24, "BOOT");
         ssd1306_update();
     } else {
         ESP_LOGE(TAG, "SSD1306 Init Failed");
     }
+#endif
+
 
 #if CONFIG_ENABLE_ST7735
     ESP_LOGI(TAG, "Initializing ST7735 SPI Displays...");

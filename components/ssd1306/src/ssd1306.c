@@ -145,20 +145,7 @@ static esp_err_t ssd1306_send_data(const uint8_t *data, size_t len) {
     return ret;
 }
 
-esp_err_t ssd1306_init(int sda_pin, int scl_pin) {
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = sda_pin,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_io_num = scl_pin,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ,
-    };
-    esp_err_t ret = i2c_param_config(I2C_MASTER_NUM, &conf);
-    if (ret != ESP_OK) return ret;
-    ret = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-    if (ret != ESP_OK) return ret;
-
+esp_err_t ssd1306_init(void) {
     // Initialization Sequence
     ssd1306_send_cmd(0xAE); // Display Off
     ssd1306_send_cmd(0xD5); // Set Display Clock Divide Ratio
