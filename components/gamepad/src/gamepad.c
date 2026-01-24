@@ -22,9 +22,11 @@ static const char *TAG = "GAMEPAD";
 static bool is_connected = false;
 static esp_hidh_dev_t *s_connected_dev = NULL;
 static gamepad_input_callback_t s_input_callback = NULL;
+static gamepad_connection_callback_t s_connection_callback = NULL;
 
 typedef struct {
     esp_bd_addr_t bda;
+
     esp_hid_transport_t transport;
     esp_ble_addr_type_t ble_addr_type;
 } connect_req_t;
@@ -76,9 +78,11 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
             esp_hidh_dev_set_protocol(param->open.dev, ESP_HID_PROTOCOL_MODE_REPORT);
             is_connected = true;
             s_connected_dev = param->open.dev;
+            if (s_connection_callback) s_connection_callback(GAMEPAD_STATUS_CONNECTED);
         } else {
             ESP_LOGE(TAG, "Open failed: %d", param->open.status);
             is_connected = false;
+            if (s_connection_callback) s_connection_callback(GAMEPAD_STATUS_SCANNING);
             esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
             esp_ble_gap_start_scanning(0);
         }
@@ -91,6 +95,7 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
         ESP_LOGI(TAG, "Disconnected");
         is_connected = false;
         s_connected_dev = NULL;
+        if (s_connection_callback) s_connection_callback(GAMEPAD_STATUS_DISCONNECTED);
         esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 10, 0);
         esp_ble_gap_start_scanning(0);
         break;
@@ -136,9 +141,11 @@ static void bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
                 ESP_LOGI(TAG, "Found: %s. Connecting...", device_name);
                 esp_bt_gap_cancel_discovery();
                 esp_ble_gap_stop_scanning();
+                if (s_connection_callback) s_connection_callback(GAMEPAD_STATUS_CONNECTING);
                 connect_req_t req;
                 memcpy(req.bda, param->disc_res.bda, sizeof(esp_bd_addr_t));
                 req.transport = ESP_HID_TRANSPORT_BT;
+
                 req.ble_addr_type = BLE_ADDR_TYPE_PUBLIC;
                 xQueueSend(s_connect_queue, &req, 0);
             }
@@ -167,9 +174,11 @@ static void ble_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     ESP_LOGI(TAG, "Found BLE: %s. Connecting...", name);
                     esp_bt_gap_cancel_discovery();
                     esp_ble_gap_stop_scanning();
+                    if (s_connection_callback) s_connection_callback(GAMEPAD_STATUS_CONNECTING);
                     connect_req_t req;
                     memcpy(req.bda, scan_result->scan_rst.bda, sizeof(esp_bd_addr_t));
                     req.transport = ESP_HID_TRANSPORT_BLE;
+
                     req.ble_addr_type = scan_result->scan_rst.ble_addr_type;
                     xQueueSend(s_connect_queue, &req, 0);
                 }
@@ -189,6 +198,10 @@ static void connection_task(void *pvParameters) {
 
 void gamepad_set_input_callback(gamepad_input_callback_t cb) {
     s_input_callback = cb;
+}
+
+void gamepad_set_connection_callback(gamepad_connection_callback_t cb) {
+    s_connection_callback = cb;
 }
 
 esp_err_t gamepad_init(void) {

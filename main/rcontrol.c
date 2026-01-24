@@ -10,6 +10,8 @@
 static const char *TAG = "ROBOT_MAIN";
 static volatile float g_speed_left = 0.0f;
 static volatile float g_speed_right = 0.0f;
+static volatile gamepad_status_t g_gamepad_status = GAMEPAD_STATUS_SCANNING;
+static volatile bool g_just_connected = false;
 
 #define I2C_SDA 21
 #define I2C_SCL 22
@@ -29,6 +31,13 @@ static volatile float g_speed_right = 0.0f;
 
 #define PWM_FREQ_HZ 10000 // 10kHz
 
+void connection_callback(gamepad_status_t status) {
+    g_gamepad_status = status;
+    if (status == GAMEPAD_STATUS_CONNECTED) {
+        g_just_connected = true;
+    }
+}
+
 void input_callback(const gamepad_state_t *state) {
     // Tank Drive Mixing
     // Just update global state. The control task will apply it.
@@ -41,6 +50,7 @@ void motor_control_task(void *arg) {
     float last_log_r = 0.0f;
     bool was_moving = false;
     int loop_count = 0;
+    int paired_ticks = 0;
 
     while (1) {
         float cur_l = g_speed_left;
@@ -50,29 +60,55 @@ void motor_control_task(void *arg) {
         // Apply speed safely in this task (approx 50Hz)
         motor_driver_set_speed(cur_l, cur_r);
 
+        // Handle connection transition
+        if (g_just_connected) {
+            paired_ticks = 30; // Show PAIRED for ~3 seconds (30 * 100ms)
+            g_just_connected = false;
+        }
+
         // Logging Logic
         if (++loop_count >= 5) { // Every 100ms
             loop_count = 0;
 
             // Update Display
-            char buf[20];
             ssd1306_clear();
-            ssd1306_draw_string(0, 0, "Robot Status");
-            
-            snprintf(buf, sizeof(buf), "L: %+.2f", cur_l);
-            ssd1306_draw_string(0, 16, buf);
-            
-            snprintf(buf, sizeof(buf), "R: %+.2f", cur_r);
-            ssd1306_draw_string(0, 24, buf);
 
-            if (is_moving) {
-                ssd1306_draw_string(0, 40, "MOVING");
+            if (g_gamepad_status == GAMEPAD_STATUS_CONNECTED) {
+                if (paired_ticks > 0) {
+                    paired_ticks--;
+                    // Center "PAIRED" roughly
+                    // Font width ~8px? "PAIRED" is 6 chars -> 48px. Screen 128. (128-48)/2 = 40.
+                    ssd1306_draw_string(40, 24, "PAIRED");
+                } else {
+                    // Normal Telemetry
+                    char buf[20];
+                    ssd1306_draw_string(0, 0, "Robot Status");
+                    
+                    snprintf(buf, sizeof(buf), "L: %+.2f", cur_l);
+                    ssd1306_draw_string(0, 16, buf);
+                    
+                    snprintf(buf, sizeof(buf), "R: %+.2f", cur_r);
+                    ssd1306_draw_string(0, 24, buf);
+
+                    if (is_moving) {
+                        ssd1306_draw_string(0, 40, "MOVING");
+                    } else {
+                        ssd1306_draw_string(0, 40, "STOPPED");
+                    }
+                }
+            } else if (g_gamepad_status == GAMEPAD_STATUS_CONNECTING) {
+                // Center "PAIRING" (7 chars -> 56px) -> 36
+                ssd1306_draw_string(36, 24, "PAIRING");
             } else {
-                ssd1306_draw_string(0, 40, "STOPPED");
+                // SCANNING or DISCONNECTED or BOOT -> Show "BOOT" per request
+                // Center "BOOT" (4 chars -> 32px) -> 48
+                ssd1306_draw_string(48, 24, "BOOT");
             }
+            
             ssd1306_update();
 
             if (is_moving) {
+
                 if (cur_l != last_log_l || cur_r != last_log_r) {
                     ESP_LOGI(TAG, "Motor Speed - L: %.2f | R: %.2f", cur_l, cur_r);
                     last_log_l = cur_l;
@@ -113,8 +149,7 @@ void app_main(void) {
 
     // Initialize Display
     if (ssd1306_init(I2C_SDA, I2C_SCL) == ESP_OK) {
-        ssd1306_draw_string(0, 0, "Robot Controller");
-        ssd1306_draw_string(0, 16, "Initializing...");
+        ssd1306_draw_string(48, 24, "BOOT");
         ssd1306_update();
     } else {
         ESP_LOGE(TAG, "SSD1306 Init Failed");
@@ -122,8 +157,10 @@ void app_main(void) {
 
     // Initialize Gamepad
     gamepad_set_input_callback(input_callback);
+    gamepad_set_connection_callback(connection_callback);
     esp_err_t ret = gamepad_init();
     if (ret != ESP_OK) {
+
         ESP_LOGE(TAG, "Gamepad Init Failed: %s", esp_err_to_name(ret));
         return;
     }
