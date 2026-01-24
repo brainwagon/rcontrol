@@ -69,4 +69,19 @@ menu "Display Configuration"
             default 4
     endmenu
 
+    menu "IMU Configuration"
+        config ENABLE_MPU6050
+            bool "Enable MPU6050 (I2C)"
+            default n
+            help
+                Enable support for MPU6050 6-axis IMU.
+
+        config MPU6050_I2C_ADDR
+            hex "MPU6050 I2C Address"
+            depends on ENABLE_MPU6050
+            default 0x68
+            help
+                I2C Address of the MPU6050 (usually 0x68 or 0x69).
+    endmenu
+
 endmenu

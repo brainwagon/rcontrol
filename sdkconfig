@@ -702,13 +702,25 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
-# ST7735 Display Configuration
+# Display Configuration
+#
+
+#
+# SSD1306 (I2C) Configuration
+#
+# default:
+CONFIG_ENABLE_SSD1306=y
+# end of SSD1306 (I2C) Configuration
+
+#
+# ST7735 (SPI) Configuration
 #
 # default:
 # CONFIG_ENABLE_ST7735 is not set
 # default:
 CONFIG_ST7735_NUM_DEVS=0
-# end of ST7735 Display Configuration
+# end of ST7735 (SPI) Configuration
+# end of Display Configuration
 
 #
 # Compiler options

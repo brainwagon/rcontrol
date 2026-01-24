@@ -9,6 +9,9 @@
 #if CONFIG_ENABLE_SSD1306
 #include "ssd1306.h"
 #endif
+#if CONFIG_ENABLE_MPU6050
+#include "mpu6050.h"
+#endif
 #include "st7735.h"
 
 
@@ -118,6 +121,20 @@ void motor_control_task(void *arg) {
                 } else {
                     // Normal Telemetry
                     char buf[20];
+
+#if CONFIG_ENABLE_MPU6050
+                    mpu6050_data_t imu;
+                    if (mpu6050_read(&imu) == ESP_OK) {
+                        // Log IMU data periodically (every 500ms approx since loop_count is reset every 100ms)
+                        // Actually loop_count resets every 5 ticks (100ms).
+                        // Let's log it here.
+                        ESP_LOGI(TAG, "IMU: Ax:%d Ay:%d Az:%d | Gx:%d Gy:%d Gz:%d | T:%.1f",
+                                 imu.accel_x, imu.accel_y, imu.accel_z,
+                                 imu.gyro_x, imu.gyro_y, imu.gyro_z,
+                                 (imu.temp / 340.0f) + 36.53f);
+                    }
+#endif
+
 #if CONFIG_ENABLE_SSD1306
                     ssd1306_draw_string(0, 0, "Robot Status");
                     
@@ -225,6 +242,16 @@ void app_main(void) {
     };
     ESP_ERROR_CHECK(i2c_param_config(I2C_MASTER_NUM, &conf));
     ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0));
+
+#if CONFIG_ENABLE_MPU6050
+    // Initialize MPU6050
+    ESP_LOGI(TAG, "Initializing MPU6050...");
+    if (mpu6050_init(I2C_MASTER_NUM, CONFIG_MPU6050_I2C_ADDR) == ESP_OK) {
+        ESP_LOGI(TAG, "MPU6050 Init Success");
+    } else {
+        ESP_LOGE(TAG, "MPU6050 Init Failed");
+    }
+#endif
 
 #if CONFIG_ENABLE_SSD1306
     // Initialize Display

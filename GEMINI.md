@@ -49,6 +49,10 @@ To prevent deadlocks common in Bluetooth callbacks:
     - Contains the implementation for HID over Bluetooth (Classic and BLE).
     - `esp_hidh.c`: HID Host implementation.
 
+- **`components/mpu6050/`**:
+    - Driver for MPU6050 I2C Accelerometer/Gyroscope.
+    - Configurable via `idf.py menuconfig`.
+
 ## Interactive Console Commands
 Once running, you can type these characters into the serial monitor:
 

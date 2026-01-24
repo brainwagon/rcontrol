@@ -10,6 +10,7 @@ The project is refactored into modular components for easy integration into larg
 - **`motor_driver` Component:** Provides a high-level API for controlling L298-style motor drivers using ESP32 `LEDC` (PWM) and GPIO.
 - **`ssd1306` Component:** I2C driver for the OLED display. Handles initialization, text rendering (8x8 font), and frame buffer management.
 - **`st7735` Component:** SPI driver for 1.8" TFT displays. Supports 16-bit color, multiple instances, and basic graphics primitives.
+- **`mpu6050` Component:** I2C driver for the MPU6050 6-axis IMU (Accelerometer + Gyroscope).
 - **`main` Application:** Maps the Left Stick Y-axis to the Left Motor and the Right Stick Y-axis to the Right Motor (**Tank Drive**). It also updates the enabled display(s) with status and speed data.
 
 ## Hardware Wiring (Pinouts)
@@ -27,9 +28,11 @@ The project is refactored into modular components for easy integration into larg
 | **Right Motor** | ENB | **GPIO 26** | PWM Speed Control |
 | | IN3 | **GPIO 27** | Direction Control |
 | | IN4 | **GPIO 14** | Direction Control |
-| **OLED Display** | SDA | **GPIO 21** | I2C Data (if enabled) |
-| | SCL | **GPIO 22** | I2C Clock (if enabled) |
-| | VCC | 3.3V | Power |
+| **I2C Bus** | SDA | **GPIO 21** | I2C Data (SSD1306 / MPU6050) |
+| | SCL | **GPIO 22** | I2C Clock (SSD1306 / MPU6050) |
+| **OLED Display** | VCC | 3.3V | Power |
+| | GND | GND | Common Ground |
+| **MPU6050 IMU** | VCC | 3.3V | Power |
 | | GND | GND | Common Ground |
 | **TFT Display** | SCLK | **GPIO 18** | SPI Clock |
 | | MOSI | **GPIO 23** | SPI Data |
@@ -43,7 +46,7 @@ The project is refactored into modular components for easy integration into larg
 
 ### Configuration (Menuconfig)
 
-The project supports flexible display configurations. You can enable or disable displays using:
+The project supports flexible display and sensor configurations. You can enable or disable hardware using:
 
 ```bash
 idf.py menuconfig
@@ -55,6 +58,10 @@ Navigate to **Display Configuration**:
     - Enable support for ST7735 TFTs.
     - Select number of displays (1 or 2).
     - Configure Pins (SCLK, MOSI, DC, RST, CS1, CS2).
+
+Navigate to **IMU Configuration**:
+- **Enable MPU6050 (I2C):** Enable support for MPU6050 IMU.
+- **MPU6050 I2C Address:** Set the address (default 0x68).
 
 
 ### L298N Jumper Hints
